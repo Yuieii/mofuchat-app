@@ -2,7 +2,7 @@ import { h, type Component } from "vue";
 import { Concat, Join, PascalCase, Replace, Split } from "../../../types";
 import { FontAwesomeSVGNames } from "../../../types/fontawesome-icons";
 
-type IconVariant = "solid" | "regular";
+export type IconVariant = "solid" | "regular";
 
 type Definition = {
     [P in IconVariant]: Component

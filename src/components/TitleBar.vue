@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Log } from '../log';
 import { AppMenu } from './ui/menu';
 import { ConfigStore } from '../stores/config';
@@ -11,9 +11,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 const currentPlatform = platform();
 
 const titleBarHeight = (() => { 
+    const isMain = getCurrentWindow().label === "main";
+
     switch (currentPlatform) {
         case "macos":
-            return "48px";
+            return isMain ? "48px" : "35px";
         default:
             return "40px";
     }

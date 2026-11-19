@@ -2,5 +2,7 @@
 </script>
 
 <template>
-    <div class="w-screen h-screen"></div>
+    <div class="min-w-screen min-h-screen">
+        <slot />
+    </div>
 </template>

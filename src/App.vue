@@ -166,62 +166,62 @@ onMounted(async () => {
                 <div class="flex flex-col grow min-w-0 min-h-0">
 
                     <AppSplitter.Root orientation="vertical">
-                        <AppSplitter.Panel :default-size="33" :min-size="10">
+                        <AppSplitter.Panel :default-size="28" :min-size="10">
                             <ServiceList />
                         </AppSplitter.Panel>
 
                         <AppSplitter.Handle />
 
-                        <AppSplitter.Panel :default-size="34" :min-size="10">
+                        <AppSplitter.Panel :default-size="40" :min-size="10">
 
-                                <AppSplitter.Root class="h-full" orientation="horizontal">
-                                    <AppSplitter.Panel :default-size="50" :min-size="30">
-                                        <div class="flex flex-col max-h-full">
-                                            <div class="flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
-                                                <span class="text-accent-400 font-black text-sm px-3 py-2">事件</span>
-                                                <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
-                                            </div>
-                                            <div class="grow overflow-x-hidden overflow-y-auto overscroll-contain min-h-0">
-                                                <div class="flex flex-col min-h-0">
-                                                    <EventsView />
-                                                </div>
+                            <AppSplitter.Root class="h-full" orientation="horizontal">
+                                <AppSplitter.Panel :default-size="50" :min-size="30">
+                                    <div class="flex flex-col max-h-full">
+                                        <div class="flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
+                                            <span class="text-accent-400 font-black text-sm px-3 py-2">事件</span>
+                                            <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
+                                        </div>
+                                        <div class="grow overflow-x-hidden overflow-y-auto overscroll-contain min-h-0">
+                                            <div class="flex flex-col min-h-0">
+                                                <EventsView />
                                             </div>
                                         </div>
-                                    </AppSplitter.Panel>
-                                    
-                                    <AppSplitter.Handle />
+                                    </div>
+                                </AppSplitter.Panel>
+                                
+                                <AppSplitter.Handle />
 
-                                    <AppSplitter.Panel :default-size="50" :min-size="30">
-                                        <div class="flex flex-col w-full h-full max-w-full max-h-full">
-                                            <div class="flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
-                                                <span class="text-accent-400 font-black text-sm px-3 py-2">禮物/超級留言</span>
-                                                <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
-                                            </div>
+                                <AppSplitter.Panel :default-size="50" :min-size="30">
+                                    <div class="flex flex-col w-full h-full max-w-full max-h-full">
+                                        <div class="flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
+                                            <span class="text-accent-400 font-black text-sm px-3 py-2">禮物/超級留言</span>
+                                            <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
+                                        </div>
 
-                                            <div class="flex flex-row min-w-0 min-h-0 max-h-full grow">
-                                                <div class="flex flex-col min-w-0 min-h-0 max-w-full grow">
-                                                    <AppSplitter.Root class="h-full mr-2" orientation="horizontal">
-                                                        <AppSplitter.Panel :default-size="30" :min-size="20">
-                                                            <div class="flex flex-row min-w-0 max-h-full">
-                                                                <div class="flex grow overflow-x-hidden overflow-y-auto overscroll-contain min-w-0 min-h-0">
-                                                                    <ContainerDebug />
-                                                                </div>
+                                        <div class="flex flex-row min-w-0 min-h-0 max-h-full grow">
+                                            <div class="flex flex-col min-w-0 min-h-0 max-w-full grow">
+                                                <AppSplitter.Root class="h-full mr-2" orientation="horizontal">
+                                                    <AppSplitter.Panel :default-size="30" :min-size="20">
+                                                        <div class="flex flex-row min-w-0 max-h-full">
+                                                            <div class="flex grow overflow-x-hidden overflow-y-auto overscroll-contain min-w-0 min-h-0">
+                                                                <ContainerDebug />
                                                             </div>
-                                                        </AppSplitter.Panel>
-                                                        <AppSplitter.Handle />
-                                                        <AppSplitter.Panel :default-size="30" :min-size="20">
-                                                            <div class="flex flex-row min-w-0 max-h-full">
-                                                                <div class="flex grow overflow-x-hidden overflow-y-auto overscroll-contain min-w-0 min-h-0">
-                                                                    <ContainerDebug />
-                                                                </div>
+                                                        </div>
+                                                    </AppSplitter.Panel>
+                                                    <AppSplitter.Handle />
+                                                    <AppSplitter.Panel :default-size="30" :min-size="20">
+                                                        <div class="flex flex-row min-w-0 max-h-full">
+                                                            <div class="flex grow overflow-x-hidden overflow-y-auto overscroll-contain min-w-0 min-h-0">
+                                                                <ContainerDebug />
                                                             </div>
-                                                        </AppSplitter.Panel>
-                                                    </AppSplitter.Root>
-                                                </div>
+                                                        </div>
+                                                    </AppSplitter.Panel>
+                                                </AppSplitter.Root>
                                             </div>
                                         </div>
-                                    </AppSplitter.Panel>
-                                </AppSplitter.Root>
+                                    </div>
+                                </AppSplitter.Panel>
+                            </AppSplitter.Root>
 
                         </AppSplitter.Panel>
                         

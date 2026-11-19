@@ -11,18 +11,15 @@ use tokio::sync::{Mutex, RwLock};
 
 use twitch_api::HelixClient;
 use twitch_api::common::chat::Fragment;
-use twitch_api::eventsub::channel::chat::message::Badge;
 use twitch_api::eventsub::channel::*;
 use twitch_api::eventsub::*;
 use twitch_api::helix::Scope;
-use twitch_api::helix::bits::GetCheermotesRequest;
-use twitch_api::helix::bits::get_cheermotes::CheermoteImage;
-use twitch_api::helix::chat::{BadgeSet, ChatBadge, GetChannelChatBadgesRequest, GetGlobalChatBadgesRequest};
-use twitch_api::types::{EmoteAnimationSetting, EmoteUrlBuilder, EventSubId};
+use twitch_api::helix::chat::{BadgeSet, GetChannelChatBadgesRequest, GetGlobalChatBadgesRequest};
+use twitch_api::types::{EmoteUrlBuilder, EventSubId};
 
 use twitch_api::{
     twitch_oauth2::{
-        AccessToken, ClientId, ClientSecret, DeviceUserTokenBuilder, RefreshToken, TwitchToken,
+        AccessToken, ClientId, DeviceUserTokenBuilder, RefreshToken, TwitchToken,
         UserToken, client::Client,
     },
     types::Nickname,
@@ -430,14 +427,33 @@ impl TwitchServiceAdapter {
         let entry = Entry::new("com.yuieii.mofuchat", "token")?;
         let password = entry.get_password();
 
-        if let Ok(t) = password {
-            let model = serde_json::from_str::<UserTokenModel>(&t);
-            if let Ok(m) = model {
-                if let Ok(res) = m.try_into_token(&self.client).await {
-                    if res.scopes() == scopes {
-                        return Ok(res);
+        match password {
+            Ok(t) => {
+                match serde_json::from_str::<UserTokenModel>(&t) {
+                    Ok(m) => {
+                        match m.try_into_token(&self.client).await {
+                            Ok(res) => {
+                                if res.scopes() == scopes {
+                                    return Ok(res);
+                                } else {
+                                    println!("Scopes mismatch!");
+                                }
+                            }
+
+                            Err(error) => {
+                                println!("Failed to authenticate: {:?}", error);
+                            }
+                        }
+                    }
+                    
+                    Err(error) => {
+                        println!("Failed to deserialize info from secure storage: {:?}", error);
                     }
                 }
+            }
+
+            Err(error) => {
+                println!("Failed to get credential from secure storage: {:?}", error);
             }
         }
 
