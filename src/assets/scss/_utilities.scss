@@ -1,0 +1,7 @@
+@mixin selector-for-all {
+    *,
+    ::before, ::after, ::backdrop,
+    ::file-selector-button {
+        @content;
+    }
+}
