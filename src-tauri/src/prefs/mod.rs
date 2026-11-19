@@ -27,14 +27,16 @@ pub struct Service {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Prefs {
-    pub services: Vec<Service>
+    pub services: Vec<Service>,
 }
 
 impl Prefs {
     pub fn try_from_onecomme(app: &AppHandle) -> Result<Self> {
-        let mut path = app.path().local_data_dir()?;
+        let mut path = app.path().data_dir()?;
         path.push("onecomme");
         path.push("config.json");
+
+        println!("OneComme config.json path: {:?}", &path);
 
         let str = fs::read_to_string(path)?;
         let prefs = serde_json::from_str(&str)?;
@@ -43,13 +45,13 @@ impl Prefs {
 
     fn save(&self, app: &AppHandle) -> Result<()> {
         let str = serde_json::to_string_pretty(self)?;
-        let mut path = app.path().app_local_data_dir()?;
-        
+        let mut path = app.path().app_data_dir()?;
+
         let dir = path.clone();
         fs::create_dir_all(dir)?;
 
         path.push("config.json");
-    
+
         println!("Saving config to {:?}", &path);
         fs::write(path, str)?;
         Ok(())
@@ -71,8 +73,6 @@ impl Prefs {
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self {
-            services: vec![]
-        }
+        Self { services: vec![] }
     }
 }

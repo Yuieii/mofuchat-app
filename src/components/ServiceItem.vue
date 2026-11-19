@@ -79,7 +79,7 @@ onBeforeUnmount(() => ticket.unregister());
             <span ref="el" class="px-1"><FontAwesome.GripVertical class="fill-accent-300 h-4" /></span>
             <AppPopover.Root>
                 <AppPopover.Activator class="inline-flex">
-                    <span class="rounded-sm aspect-square w-5 my-3" :style="{ background: getHex() }"></span>
+                    <span class="rounded-sm aspect-square w-5 my-2" :style="{ background: getHex() }"></span>
                 </AppPopover.Activator>
 
                 <AppPopover.Content class="rounded-3xl!">

@@ -1,7 +1,7 @@
-mod state;
-mod prefs;
 mod comments;
+mod prefs;
 mod services;
+mod state;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -11,23 +11,72 @@ fn greet(name: &str) -> String {
 
 use std::sync::Mutex;
 
-use tauri::{App, Emitter, Manager, RunEvent, WindowEvent};
+use tauri::{App, Emitter, Manager, RunEvent, WindowEvent, image::Image, menu::{ContextMenu, Menu, MenuBuilder, MenuEvent, MenuItemBuilder}, tray::{TrayIconBuilder, TrayIconEvent}};
 
-use crate::{prefs::Prefs, services::commands::toggle_channel, state::{AppState, ManagerExt}};
+#[cfg(target_os = "windows")]
+use tauri_plugin_decorum::WebviewWindowExt;
+
+use crate::{
+    services::commands::toggle_channel,
+    state::{AppState, ManagerExt},
+};
 
 fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
     // Create a custom titlebar for main window
     // On Windows this will hide decoration and render custom window controls
     // On macOS it expects a hiddenTitle: true and titleBarStyle: overlay
     let main_window = app.get_webview_window("main").unwrap();
-    // main_window.create_overlay_titlebar().unwrap();
 
-    #[cfg(target_os = "macos")]
+    let tray = TrayIconBuilder::new()
+        .icon(app.default_window_icon().unwrap().clone())
+        .build(app)?;
+
+    tray.on_tray_icon_event(|icon, event| {
+        let main_window = icon.app_handle().get_webview_window("main").unwrap();
+        match event {
+            #[cfg(target_os = "windows")]
+            TrayIconEvent::DoubleClick { id, position, rect, button } => {
+                use tauri::tray::MouseButton;
+                if button == MouseButton::Left {
+                    let _ = main_window.show();
+                    let _ = main_window.set_focus();
+                }
+            }
+
+            _ => {}
+        }
+    });
+
+    tray.set_menu(Some(
+        MenuBuilder::new(app)
+            .item(&MenuItemBuilder::new("開啟").id("tray_open").build(app)?)
+            .item(&MenuItemBuilder::new("退出").id("tray_quit").build(app)?)
+            .build()?
+    ))?;
+
+    tray.on_menu_event(|app, event| {
+        match event.id.as_ref() {
+            "tray_open" => {
+                let main_window = app.get_webview_window("main").unwrap();
+                let _ = main_window.show();
+                let _ = main_window.set_focus();
+            }
+            
+            "tray_quit" => {
+                app.cleanup_before_exit();
+            }
+
+            _ => {}
+        }
+    });
+
+    #[cfg(target_os = "windows")]
+    main_window.set_decorations(false)?;
+
     let window_ = main_window.clone();
 
     state::setup(app)?;
 
-    #[cfg(target_os = "macos")]
     main_window.with_webview(move |webview| {
         //window_.set_traffic_lights_inset(16.0, 20.0).unwrap();
 
@@ -39,9 +88,16 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
 
         // let webview: &WKWebView = unsafe {&*webview.inner().cast()};
 
-        apply_vibrancy(&window_, NSVisualEffectMaterial::HudWindow,  None, None)
-            .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
+        #[cfg(target_os = "windows")]
+        {
+            let _ = apply_mica(&window_, None);
+        }
 
+        #[cfg(target_os = "macos")]
+        {
+            apply_vibrancy(&window_, NSVisualEffectMaterial::HudWindow, None, None)
+                .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
+        }
         // let options = LiquidGlassOptions::new(NSGlassEffectViewStyle::Sidebar)
         //     .radius(26.0)
         //     .interactive(true)
@@ -65,7 +121,7 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
     });
 
     let h = handle.clone();
-    tauri::async_runtime::spawn(async move { 
+    tauri::async_runtime::spawn(async move {
         let prefs = h.lock_prefs().await;
         let ids: Vec<_> = prefs.services.iter().map(|s| s.id.clone()).collect();
         drop(prefs);
@@ -81,6 +137,7 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_decorum::init())
         .setup(setup)
@@ -88,7 +145,7 @@ pub fn run() {
             WindowEvent::CloseRequested { api, .. } => {
                 window.hide().unwrap();
                 api.prevent_close();
-            },
+            }
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
@@ -101,7 +158,12 @@ pub fn run() {
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
-        if let RunEvent::Reopen { has_visible_windows, .. } = event {
+        #[cfg(target_os = "macos")]
+        if let RunEvent::Reopen {
+            has_visible_windows,
+            ..
+        } = event
+        {
             if !has_visible_windows {
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.show();

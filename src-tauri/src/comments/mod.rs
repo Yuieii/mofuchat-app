@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::prefs::{RgbColor, Service};
 
@@ -6,7 +6,9 @@ use crate::prefs::{RgbColor, Service};
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum CommentRenderer {
     Text { content: String },
-    Emote { name: String, url: String }
+    Emote { name: String, url: String },
+    Mention { content: String },
+    TwitchCheermote { name: String, url: String, bits: u32 }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -18,16 +20,39 @@ pub enum CommentPlatform {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserBadge {
+    pub url: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommonCommentData {
+    pub id: String,
+    pub timestamp: u64,
+    pub name: String,
+    pub display_name: String,
+    pub profile_image: Option<String>,
+    pub renderers: Vec<CommentRenderer>,
+    pub badges: Vec<UserBadge>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(untagged, rename_all = "camelCase")]
 #[non_exhaustive]
 pub enum CommentData {
     Twitch {
+        #[serde(flatten)]
+        base: CommonCommentData,
 
+        bits: Option<u32>,
     },
 
     External {
-        
-    }
+        #[serde(flatten)]
+        base: CommonCommentData
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -35,11 +60,6 @@ pub enum CommentData {
 pub struct Comment {
     pub id: String,
     pub service: CommentPlatform,
-    pub color: RgbColor,
     pub data: CommentData,
-    pub timestamp: u64,
-    pub author_name: String,
-    pub author_display_name: String,
-    pub author_avatar: Option<String>,
-    pub renderers: Vec<CommentRenderer>,
+    pub color: RgbColor,
 }

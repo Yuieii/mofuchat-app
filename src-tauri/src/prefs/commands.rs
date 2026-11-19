@@ -1,6 +1,6 @@
+use crate::state::ManagerExt;
 use eyre::Result;
 use tauri::{AppHandle, command};
-use crate::state::ManagerExt;
 
 use super::Prefs;
 

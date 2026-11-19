@@ -5,7 +5,10 @@ use eyre::Result;
 use tauri::AppHandle;
 use tokio::sync::broadcast;
 
-use crate::{prefs::Service, services::{ServiceEvent, twitch}};
+use crate::{
+    prefs::Service,
+    services::{ServiceEvent, twitch},
+};
 
 #[async_trait]
 pub trait ServiceAdapter: Send + Sync {
@@ -24,7 +27,7 @@ impl AdapterRegistry {
             adapters: vec![
                 twitch::TwitchServiceAdapter::new(),
                 // Arc::new(yo)
-            ]
+            ],
         }
     }
 

@@ -5,6 +5,7 @@
 @use "sass:string";
 
 @use "utilities";
+@use "popover";
 
 @mixin plus-jakarta-sans {
     $url-prefix: "https://fonts.gstatic.com/s/plusjakartasans/v12";
@@ -101,7 +102,6 @@
 @include plus-jakarta-sans();
 @include line-seed-bulk("LINE Seed TW", "@/assets/fonts/LINE Seed TW_ver02", "LINESeedTW");
 @include line-seed-bulk("LINE Seed JP", "@/assets/fonts/LINESeedJP_20241105/Web", "LINESeedJP");
-
 
 @import "tailwindcss";
 

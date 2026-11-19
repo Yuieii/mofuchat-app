@@ -75,7 +75,7 @@ onBeforeUnmount(() => zone.unregister());
 
 <template>
     <div class="flex flex-col max-h-full min-h-0 overflow-y-auto">
-        <div ref="wrap" class="grid grid-cols-[repeat(2,6fr)_repeat(5,auto)]">
+        <div ref="wrap" class="grid grid-cols-[1fr_3fr_repeat(5,auto)]">
             <div class="divide-x-1 grid grid-cols-subgrid col-span-7 sticky top-0 bg-[#fff3] backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
                 <div class="border-[#0001] flex flex-row justify-center items-center py-2 px-3 text-sm text-accent-600 opacity-50">聊天室名稱</div>
                 <div class="border-[#0001] flex flex-row justify-center items-center py-2 px-3 text-sm text-accent-600 opacity-50">直播網址</div>

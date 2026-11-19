@@ -19,7 +19,7 @@ tauri-build = { version = "2", features = [] }
 dotenv-build = "0.1"
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -34,6 +34,8 @@ futures-util = "0.3"
 twitch_api = { version = "0.8.0", features = ["twitch_oauth2", "client", "helix", "hmac", "eventsub", "reqwest"] }
 keyring = "4.2.0"
 chrono = "0.4.45"
+tauri-plugin-os = "2"
+cached = { version = "4.1.1", features = ["async"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-web-kit = { version = "0.3.2", default-features = false, features = ["objc2-app-kit", "WKWebView"] }

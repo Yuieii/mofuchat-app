@@ -12,10 +12,10 @@ const model = defineModel<boolean>({
       class="inline-flex items-center border-none bg-transparent p-0 outline-none rounded-full"
     >
       <Switch.Track
-        class="relative inline-flex items-center w-11 h-6 rounded-full bg-surface-variant transition-colors bg-gray-300 data-[state=checked]:bg-accent-500"
+        class="relative inline-flex items-center w-10 h-5 rounded-full bg-surface-variant transition-colors bg-gray-300 data-[state=checked]:bg-accent-500"
       >
         <Switch.Thumb
-          class="block size-4 rounded-full bg-white shadow-sm transition-transform translate-x-1 data-[state=checked]:translate-x-6"
+          class="block size-3.5 rounded-full bg-white shadow-sm transition-transform translate-x-1 data-[state=checked]:translate-x-5.5"
         />
       </Switch.Track>
     </Switch.Root>

@@ -33,7 +33,8 @@ function renderEvent(event: MofuEvent): VNode | null {
 
         case "commentCreated":
             return h(EventCommentCreated, {
-                comment: event.data
+                comment: event.data,
+                class: "text-sm"
             });
 
         default:
