@@ -3,30 +3,111 @@ mod prefs;
 mod services;
 mod state;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+use tauri::{App, AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 
-use std::sync::Mutex;
-
-use tauri::{App, Emitter, Manager, RunEvent, WindowEvent, image::Image, menu::{ContextMenu, Menu, MenuBuilder, MenuEvent, MenuItemBuilder}, tray::{TrayIconBuilder, TrayIconEvent}};
-
-#[cfg(target_os = "windows")]
-use tauri_plugin_decorum::WebviewWindowExt;
-
+use crate::prefs::VisualStyle;
 use crate::{
     services::commands::toggle_channel,
-    state::{AppState, ManagerExt},
+    state::ManagerExt,
 };
 
-fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
-    // Create a custom titlebar for main window
-    // On Windows this will hide decoration and render custom window controls
-    // On macOS it expects a hiddenTitle: true and titleBarStyle: overlay
-    let main_window = app.get_webview_window("main").unwrap();
+#[tauri::command]
+async fn open_settings_window(app: AppHandle) {
+    /*
+        fullscreen: false,
+        resizable: true,
+        width: 800,
+        minWidth: 800,
+        height: 600,
+        minHeight: 600,
+        titleBarStyle: "overlay",
+        hiddenTitle: true,
+        center: true,
+        focusable: true,
+        focus: true,
+        decorations: currentPlatform === "macos",
+        transparent: true,
+     */
 
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+
+    let prefs = app.lock_prefs().await;
+    let dark_mode = prefs.config.app.dark_mode;
+    let visual_style = prefs.config.mofu.window_style.clone();
+    
+    let window = tauri::WebviewWindowBuilder::new(&app, "settings", tauri::WebviewUrl::App("/settings.html".into()))
+        .fullscreen(false)
+        .resizable(true)
+        .transparent(true)
+        .inner_size(800.0, 600.0)
+        .min_inner_size(800.0, 600.0)
+        .title("MofuChat")
+        .visible(false)
+        .build()
+        .unwrap();
+
+    apply_window_effects(&window, visual_style, dark_mode).unwrap();
+    window.show().unwrap();
+}
+
+fn apply_window_effects(window: &WebviewWindow, visual_style: VisualStyle, dark_mode: bool) -> eyre::Result<()> {
+    #[cfg(target_os = "windows")]
+    window.set_decorations(false)?;
+
+    let window_ = window.clone();
+
+    window.with_webview(move |webview| {
+        //window_.set_traffic_lights_inset(16.0, 20.0).unwrap();
+
+        // Make window transparent without privateApi
+        // window.make_transparent().unwrap();
+
+        use window_vibrancy::*;
+
+        match visual_style {
+            #[cfg(target_os = "windows")]    
+            VisualStyle::Mica => {
+                let _ = apply_mica(&window_, Some(dark_mode));
+            }
+
+            #[cfg(target_os = "windows")]
+            VisualStyle::Acrylic => {
+                let _ = apply_acrylic(&window_, None);    
+            }    
+
+            #[cfg(target_os = "macos")]
+            VisualStyle::Vibrancy => {
+                apply_vibrancy(&window_, NSVisualEffectMaterial::HudWindow, None, None)
+                    .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");    
+            }
+
+            _ => {}
+        };
+
+        // #[cfg(target_os = "macos")]
+        {
+            // use objc2_web_kit::WKWebView;
+            // let webview: &WKWebView = unsafe {&*webview.inner().cast()};
+            // let options = LiquidGlassOptions::new(NSGlassEffectViewStyle::Sidebar)
+            //     .radius(26.0)
+            //     .interactive(true)
+            //     .content_view(webview);
+
+            // apply_liquid_glass(&window_, options)
+            //     .expect("Unsupported platform! 'apply_liquid_glass' is only supported on macOS 26+");
+        }
+    })?;
+
+    Ok(())
+}
+
+fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
     let tray = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .build(app)?;
@@ -63,49 +144,33 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
             }
             
             "tray_quit" => {
-                app.cleanup_before_exit();
+                let handle = app.clone();
+                tauri::async_runtime::block_on(async move {
+                    let adapters = &handle.app_state().registry;
+                    adapters.terminate(&handle).await;
+                    handle.cleanup_before_exit();
+                    handle.exit(0);
+                });
             }
 
             _ => {}
         }
     });
 
-    #[cfg(target_os = "windows")]
-    main_window.set_decorations(false)?;
-
-    let window_ = main_window.clone();
-
     state::setup(app)?;
 
-    main_window.with_webview(move |webview| {
-        //window_.set_traffic_lights_inset(16.0, 20.0).unwrap();
+    // Create a custom titlebar for main window
+    // On Windows this will hide decoration and render custom window controls
+    // On macOS it expects a hiddenTitle: true and titleBarStyle: overlay
 
-        // Make window transparent without privateApi
-        // main_window.make_transparent().unwrap();
+    let handle = app.handle().clone();
+    let (visual_style, dark_mode) = tauri::async_runtime::block_on(async move {
+        let prefs = handle.lock_prefs().await;
+        (prefs.config.mofu.window_style.clone(), prefs.config.app.dark_mode)
+    });
 
-        // use objc2_web_kit::WKWebView;
-        use window_vibrancy::*;
-
-        // let webview: &WKWebView = unsafe {&*webview.inner().cast()};
-
-        #[cfg(target_os = "windows")]
-        {
-            let _ = apply_mica(&window_, None);
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            apply_vibrancy(&window_, NSVisualEffectMaterial::HudWindow, None, None)
-                .expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
-        }
-        // let options = LiquidGlassOptions::new(NSGlassEffectViewStyle::Sidebar)
-        //     .radius(26.0)
-        //     .interactive(true)
-        //     .content_view(webview);
-
-        // apply_liquid_glass(&window_, options)
-        //     .expect("Unsupported platform! 'apply_liquid_glass' is only supported on macOS 26+");
-    })?;
+    let window = app.get_webview_window("main").unwrap();
+    apply_window_effects(&window, visual_style, dark_mode)?;
 
     let handle = app.handle().clone();
     let mut rx = handle.app_state().event_tx.subscribe();
@@ -114,7 +179,7 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
     tauri::async_runtime::spawn(async move {
         while let Ok(event) = rx.recv().await {
             println!("emit event pre: {:?}", &event);
-            let _ = h.emit("mofuchat-event", &event);
+            let _ = h.emit("mofu://services/event", &event);
             println!("emit event post: {:?}", &event);
         }
         println!("emit event out, this is bad");
@@ -143,13 +208,15 @@ pub fn run() {
         .setup(setup)
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => {
-                window.hide().unwrap();
-                api.prevent_close();
+                if window.label() == "main" {
+                    window.hide().unwrap();
+                    api.prevent_close();
+                }
             }
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
+            open_settings_window,
             prefs::commands::get_prefs,
             prefs::commands::set_prefs,
             services::commands::toggle_channel,

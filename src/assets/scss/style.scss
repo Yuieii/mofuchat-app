@@ -89,8 +89,8 @@
             font-weight: #{$weight};
             font-display: swap;
             src: 
-                local("#{$name}_OTF #{$local-weight}"),
-                local("#{$name}_TTF #{$local-weight}"),
+                // local("#{$name}_OTF #{$local-weight}"),
+                // local("#{$name}_TTF #{$local-weight}"),
                 url("#{$url-prefix}/WOFF2/#{$file-prefix}_OTF_#{$file-weight}.woff2") format(woff2),
                 url("#{$url-prefix}/WOFF/#{$file-prefix}_OTF_#{$file-weight}.woff") format(woff),
                 url("#{$url-prefix}/EOT/#{$file-prefix}_TTF_#{$file-weight}.eot") format(eot);
@@ -131,6 +131,12 @@ html, body {
 
 @include utilities.selector-for-all {
     font-family: var(--ue-font-family);
+}
+
+code {
+    @include utilities.selector-for-all-nested {
+        font-family: "FantasqueSansM Nerd Font Mono", "Monaco", "Cascadia Code", "Consolas", monospace;
+    }        
 }
 
 @theme {

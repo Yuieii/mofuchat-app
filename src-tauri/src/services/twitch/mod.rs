@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
@@ -7,6 +8,7 @@ use futures_util::TryStreamExt;
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use tauri::async_runtime::JoinHandle;
 use tokio::sync::{Mutex, RwLock};
 
 use twitch_api::HelixClient;
@@ -15,6 +17,7 @@ use twitch_api::eventsub::channel::*;
 use twitch_api::eventsub::*;
 use twitch_api::helix::Scope;
 use twitch_api::helix::chat::{BadgeSet, GetChannelChatBadgesRequest, GetGlobalChatBadgesRequest};
+use twitch_api::twitch_oauth2::id::DeviceCodeResponse;
 use twitch_api::types::{EmoteUrlBuilder, EventSubId};
 
 use twitch_api::{
@@ -36,6 +39,20 @@ use crate::{
 };
 
 const CLIENT_ID: &str = env!("TWITCH_CLIENT_ID");
+
+#[derive(Clone, Debug)]
+struct ErrString(String);
+
+impl std::error::Error for ErrString {
+
+}
+
+impl Display for ErrString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -76,6 +93,8 @@ pub struct TwitchServiceAdapter {
     websocket_session: Arc<RwLock<Option<String>>>,
     subscriptions: Arc<RwLock<HashMap<String, Vec<EventSubId>>>>,
     global_badges: Mutex<Option<(Vec<BadgeSet>, DateTime<Local>)>>,
+    pending_auth: Mutex<Option<DeviceCodeResponse>>,
+    loop_handle: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl TwitchServiceAdapter {
@@ -86,6 +105,8 @@ impl TwitchServiceAdapter {
             websocket_session: Arc::new(RwLock::new(None)),
             subscriptions: Arc::new(RwLock::new(HashMap::new())),
             global_badges: Mutex::new(None),
+            pending_auth: Mutex::new(None),
+            loop_handle: Mutex::new(None),
         })
     }
 
@@ -282,7 +303,8 @@ impl TwitchServiceAdapter {
 
         let tx = app.app_state().event_tx.clone();
 
-        tauri::async_runtime::spawn(async move {
+        let mut loop_handle = self.loop_handle.lock().await;
+        let handle = tauri::async_runtime::spawn(async move {
             loop {
                 println!("Starting WebSocket gateway");
                 let ws = reqwest::Client::builder()
@@ -328,6 +350,7 @@ impl TwitchServiceAdapter {
                 let _ = shared.websocket_session.write().await.take();
             }
         });
+        *loop_handle = Some(handle);
 
         Ok(())
     }
@@ -412,6 +435,18 @@ impl TwitchServiceAdapter {
     }
 
     async fn authenticate(&self, app: &AppHandle) -> Result<UserToken> {
+        let pending = self.pending_auth.lock().await;
+        if let Some(info) = &*pending {
+            app.app_state().event_tx.send(ServiceEvent::RequiresSignIn { 
+                platform: CommentPlatform::Twitch, 
+                code: Some(info.user_code.clone()), 
+                url: info.verification_uri.clone(), 
+                expires_in: info.expires_in
+            })?;
+            return Err(ErrString("Pending device code auth".into()))?;
+        }
+        drop(pending);
+
         let lock = self.authenticate_lock.lock().await;
 
         if let Some(token) = &*lock {
@@ -462,11 +497,26 @@ impl TwitchServiceAdapter {
         let info = builder.start(&self.client).await?;
         println!("Device code: {:?}", info.verification_uri);
 
+        let mut pending = self.pending_auth.lock().await;
+        *pending = Some(info.clone());
+        drop(pending);
+
+        app.app_state().event_tx.send(ServiceEvent::RequiresSignIn { 
+            platform: CommentPlatform::Twitch, 
+            code: Some(info.user_code.clone()), 
+            url: info.verification_uri.clone(),
+            expires_in: info.expires_in,
+        })?;
+
         let result = builder
             .wait_for_code(&self.client, async |duration| {
                 tokio::time::sleep(duration).await;
             })
             .await?;
+
+        let mut pending = self.pending_auth.lock().await;
+        *pending = None;
+        drop(pending);
 
         let save = UserTokenModel::new(&result);
         entry.set_password(&serde_json::to_string(&save)?)?;
@@ -489,5 +539,11 @@ impl ServiceAdapter for TwitchServiceAdapter {
     async fn dispose(&self, service_id: String, app: AppHandle) -> Result<()> {
         self.unsubscribe_eventsub(service_id, &app).await?;
         Ok(())
+    }
+
+    async fn terminate(&self) {
+        if let Some(handle) = &*self.loop_handle.lock().await {
+            handle.abort();
+        }
     }
 }

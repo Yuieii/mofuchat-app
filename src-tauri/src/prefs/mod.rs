@@ -1,10 +1,183 @@
-use std::fs;
+use std::{default, fs};
 
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, path::BaseDirectory};
+use window_vibrancy::clear_mica;
 
 pub mod commands;
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(default, rename_all = "camelCase")]
+pub struct SpeechConfig {
+    volume: f32,
+    rate: f32,
+    pitch: f32,
+}
+
+impl SpeechConfig {
+    pub fn replace(&mut self, other: Self, app: &AppHandle) {
+        self.volume = other.volume;
+        self.rate = other.rate;
+        self.pitch = other.pitch;
+    }
+}
+
+impl Default for SpeechConfig {
+    fn default() -> Self {
+        SpeechConfig { volume: 0.5, rate: 1.0, pitch: 1.0 }
+    }
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum WindowsVisualStyle {
+    Normal,
+    #[default]
+    Mica,
+    Acrylic,
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum MacOsVisualStyle {
+    Normal,
+    #[default]
+    Vibrancy,
+    Glass,
+}
+
+#[cfg(target_os = "windows")]
+pub type VisualStyle = WindowsVisualStyle;
+
+#[cfg(target_os = "macos")]
+pub type VisualStyle = MacOsVisualStyle;
+
+#[derive(Default, Clone, Debug)]
+pub struct MofuReplaceResult {
+    pub mica_dirty: bool
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[serde(default, rename_all = "camelCase")]
+pub struct MofuConfig {
+    pub window_style: VisualStyle
+}
+
+impl MofuConfig {
+    pub fn replace(&mut self, other: Self, app: &AppHandle) -> MofuReplaceResult {
+        use window_vibrancy::*;
+
+        let original = self.window_style.clone();
+        self.window_style = other.window_style;
+
+        let mut mica_dirty = false;
+
+        if self.window_style != original {
+            for window in app.webview_windows().values() {
+                match original {
+                    #[cfg(target_os = "windows")]
+                    VisualStyle::Mica => {
+                        let _ = clear_mica(window);
+                    }
+
+                    #[cfg(target_os = "windows")]
+                    VisualStyle::Acrylic => {
+                        let _ = clear_acrylic(window);
+                    }
+
+                    #[cfg(target_os = "macos")]
+                    VisualStyle::Vibrancy => {
+                        let _ = clear_vibrancy(window);
+                    }
+
+                    #[cfg(target_os = "macos")]
+                    VisualStyle::Glass => {
+                        // TODO
+                    }
+
+                    _ => {}
+                }
+
+                match self.window_style {
+                    #[cfg(target_os = "windows")]
+                    VisualStyle::Mica => {
+                        // let _ = apply_mica(window, Some(false));
+                        mica_dirty = true;
+                    }
+
+                    #[cfg(target_os = "windows")]
+                    VisualStyle::Acrylic => {
+                        let _ = apply_acrylic(window, None);
+                    }
+
+                    #[cfg(target_os = "macos")]
+                    VisualStyle::Vibrancy => {
+                        let _ = apply_vibrancy(&window_, NSVisualEffectMaterial::HudWindow, None, None);
+                    }
+
+                    #[cfg(target_os = "macos")]
+                    VisualStyle::Glass => {
+                        // TODO
+                    }
+
+                    _ => {}
+                }
+            }
+        }
+
+        MofuReplaceResult { 
+            mica_dirty
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[serde(default, rename_all = "camelCase")]
+pub struct AppConfig {
+    pub dark_mode: bool
+}
+
+impl AppConfig {
+    pub fn replace(&mut self, other: Self, app: &AppHandle) {
+        self.dark_mode = other.dark_mode;
+    }
+}
+
+#[derive(Serialize, Deserialize, Default, Clone, Debug)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Config {
+    pub speech: SpeechConfig,
+    pub app: AppConfig,
+    pub mofu: MofuConfig,
+}
+
+impl Config {
+    pub fn replace(&mut self, other: Self, app: &AppHandle) {
+        let dark_dirty = self.app.dark_mode != other.app.dark_mode;
+
+        self.speech.replace(other.speech, app);
+        self.app.replace(other.app, app);
+
+        let result = self.mofu.replace(other.mofu, app);
+        
+        #[cfg(target_os = "windows")]
+        {
+            if result.mica_dirty || (self.mofu.window_style == VisualStyle::Mica && dark_dirty) {
+                self.apply_new_mica(app);
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    fn apply_new_mica(&self, app: &AppHandle) {
+        for window in app.webview_windows().values() {
+            let _ = window_vibrancy::apply_mica(window, Some(self.app.dark_mode));
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
@@ -27,6 +200,7 @@ pub struct Service {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Prefs {
+    pub config: Config,
     pub services: Vec<Service>,
 }
 
@@ -58,6 +232,7 @@ impl Prefs {
     }
 
     fn set(&mut self, value: Self, app: &AppHandle) -> Result<()> {
+        self.config.replace(value.config, app);
         self.services = value.services;
         self.save(app)
     }
@@ -73,6 +248,9 @@ impl Prefs {
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self { services: vec![] }
+        Self { 
+            config: Default::default(),
+            services: vec![] 
+        }
     }
 }

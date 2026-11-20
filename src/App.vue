@@ -1,67 +1,41 @@
 <script setup lang="ts">
 import "./assets/scss/style.scss";
-import { onMounted } from "vue";
+import { onMounted, toRef } from "vue";
 import ContainerDebug from "./components/ContainerDebug.vue";
 import ServiceList from "./components/ServiceList.vue";
 import StreamList from "./components/StreamList.vue";
 import { AppSplitter } from "./components/ui/splitter/index.ts";
 
-import { ConfigStore } from "./stores/config.ts";
+import { ConfigStore, useConfig } from "./stores/config.ts";
 import EventsView from "./components/EventsView.vue";
 import TitleBar from "./components/TitleBar.vue";
 import { Log } from "./log.ts";
 import { platform } from "@tauri-apps/plugin-os";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import Button from "./components/ui/widgets/Button.vue";
 import { AppMenu } from "./components/ui/menu/index.ts";
 import { FontAwesome } from "./components/ui/icons/index.ts";
 import { AppTooltip } from "./components/ui/tooltip/index.ts";
+import { invoke } from "@tauri-apps/api/core";
+import { useWindowStyling } from "./composables/index.ts";
+import { PRODUCT_NAME, PRODUCT_VERSION } from "./constants.ts";
+import { EventStore, useMofuEvents } from "./stores/events/index.ts";
+import { Utils } from "./utils.ts";
 
+useMofuEvents();
+useConfig();
 
 const logger = Log.createLogger("App");
-
 const currentPlatform = platform();
 
 function openSettings() {
-    const webview = new WebviewWindow("settings", {
-        url: "/settings.html",
-        title: "Settings",
-        fullscreen: false,
-        resizable: true,
-        width: 800,
-        minWidth: 800,
-        height: 600,
-        minHeight: 600,
-        titleBarStyle: "overlay",
-        hiddenTitle: true,
-        center: true,
-        focusable: true,
-        focus: true,
-        decorations: currentPlatform === "macos"
-    });
-}
-
-function createUuid() {
-    const chars = "0123456789abcdef".split("");
-    const result = <string[]>[];
-    for (let i = 0; i < 16; i++) {
-        for (let j = 0; j < 2; j++) {
-            result.push(chars[Math.floor(Math.random() * chars.length)]);
-        }
-
-        if ([4, 6, 8, 10].includes(i + 1)) {
-            result.push("-");
-        }
-    }
-
-    return result.join("");
+    invoke("open_settings_window");
 }
 
 function createNewService() {
     const services = ConfigStore.data?.services;
     if (services == null) return;
     services.push({
-        id: createUuid(),
+        id: Utils.createUuid(),
         name: "#",
         url: "https://",
         color: { r: 0, g: 0, b: 0 },
@@ -71,14 +45,12 @@ function createNewService() {
     logger.log("Created new service");
 }
 
-onMounted(async () => {
-    await ConfigStore.loadConfig();
-});
+const { defaultBackground } = useWindowStyling();
 </script>
 
 <template>
-    <div class="flex flex-col min-h-0 min-w-0 w-screen h-screen max-w-screen max-h-screen overscroll-none overflow-hidden bg-[#fff8]">
-        <TitleBar>
+    <div class="flex flex-col min-h-0 min-w-0 w-screen h-screen max-w-screen max-h-screen overscroll-none overflow-hidden" :class="defaultBackground">
+        <TitleBar :title="`${PRODUCT_NAME} ${PRODUCT_VERSION}`">
             <template #left>
                 <Button @click="createNewService()">新增</Button>
             </template>
@@ -90,11 +62,11 @@ onMounted(async () => {
                     <Button>清除留言</Button>
                 -->
 
-                <div class="divide-x-1 shrink-0 bg-accent-500 text-white fill-white leading-1 rounded-full text-sm outline-none overflow-hidden">
+                <div class="divide-x-1 shrink-0 bg-accent-500 text-white fill-white leading-[1] rounded-full text-sm outline-none overflow-hidden">
                     <AppTooltip.Root class="border-accent-400" position-area="bottom">
                         <AppTooltip.Activator>
                             <button class="px-[0.9em] py-[0.4em] disabled:opacity-50 enabled:hover:bg-accent-400 enabled:active:bg-accent-600 transition duration-200">
-                                <FontAwesome.Trash class="h-4" />
+                                <FontAwesome.AddressBook class="h-4" />
                             </button>
                         </AppTooltip.Activator>
                         <AppTooltip.Content>
@@ -113,7 +85,9 @@ onMounted(async () => {
                     </AppTooltip.Root>
                     <AppTooltip.Root class="border-accent-400" position-area="bottom">
                         <AppTooltip.Activator>
-                            <button class="px-[0.9em] py-[0.4em] disabled:opacity-50 enabled:hover:bg-accent-400 enabled:active:bg-accent-600 transition duration-200">
+                            <button 
+                                class="px-[0.9em] py-[0.4em] disabled:opacity-50 enabled:hover:bg-accent-400 enabled:active:bg-accent-600 transition duration-200"
+                                @click="EventStore.events.splice(0, EventStore.events.length)">
                                 <FontAwesome.Trash class="h-4" />
                             </button>
                         </AppTooltip.Activator>
@@ -149,7 +123,7 @@ onMounted(async () => {
                         <AppMenu.Item>通知</AppMenu.Item>
                         <AppMenu.Item>支援</AppMenu.Item>
 
-                        <AppMenu.Sub class="drop-shadow-black">
+                        <AppMenu.Sub>
                             <AppMenu.SubActivator>其他</AppMenu.SubActivator>
 
                             <AppMenu.SubContent>

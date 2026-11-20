@@ -1,13 +1,25 @@
 import { listen } from "@tauri-apps/api/event";
-import { reactive } from "vue";
+import { onUnmounted, reactive } from "vue";
 
-import type { MofuEvent, MofuComment, MofuEventTypeLookup } from "./typings";
+import type { MofuEvent } from "./typings";
+import { Utils } from "../../utils";
 export * from "./typings";
 
 export const EventStore = reactive({
-    events: <MofuEvent[]>[]
+    events: <(MofuEvent & { key: string })[]>[]
 });
 
-listen<MofuEvent>("mofuchat-event", event => {
-    EventStore.events.push(event.payload);
-});
+export function useMofuEvents() {
+    const promise = listen<MofuEvent>("mofu://services/event", event => {
+        EventStore.events.push({
+            ...event.payload,
+            key: Utils.createUuid()
+        });
+    });
+
+    onUnmounted(async () => {
+        const unlisten = await promise;
+        unlisten();
+    });
+}
+

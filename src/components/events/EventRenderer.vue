@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { h } from 'vue';
 import type { VNode } from 'vue';
-import { MofuEvent } from '../../stores/events';
+import { MofuEvent, MofuEventTypeLookup } from '../../stores/events';
 import EventConnection from './EventConnection.vue';
 import { ConfigStore, Service } from '../../stores/config.ts';
 import EventCommentCreated from './EventCommentCreated.vue';
+import EventRequireSignIn from './EventRequireSignIn.vue';
 
 const { event } = defineProps<{
     event: MofuEvent
@@ -14,7 +15,13 @@ function getService(id: string): Service | undefined {
     return ConfigStore.data?.services.find(s => s.id == id);
 }
 
-function renderEvent(event: MofuEvent): VNode | null {
+function assumeKnownKey(event: MofuEvent): MofuEvent<keyof MofuEventTypeLookup> {
+    // @ts-ignore;
+    return event;
+}
+
+function renderEvent<K extends string>(ev: MofuEvent<K>): VNode | null {
+    const event = assumeKnownKey(ev);
     switch (event.event) {
         case "serviceConnected":
             return h(EventConnection, {
@@ -37,10 +44,18 @@ function renderEvent(event: MofuEvent): VNode | null {
                 class: "text-sm"
             });
 
+        case "requiresSignIn":
+            return h(EventRequireSignIn, {
+                data: event.data
+            });
+
         default:
             return h(EventConnection, {
-                class: "bg-gray-200! text-gray-700! fill-gray-700!"
-            }, () => "未知事件。");
+                class: "bg-gray-200! text-gray-700! fill-gray-700! items-center gap-2"
+            }, [
+                h("span", "未知事件。"),
+                h("code", { class: "opacity-50 text-xs font-monospace bg-[#0002] px-1 mt-0.5 pt-0.5 rounded-sm border border-[#0003]" }, `event: "${ev.event}"`)
+            ]);
     }
 }
 </script>

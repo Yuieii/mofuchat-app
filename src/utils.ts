@@ -110,4 +110,20 @@ export const Utils = {
 
         return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
     },
+
+    createUuid() {
+        const chars = "0123456789abcdef".split("");
+        const result = <string[]>[];
+        for (let i = 0; i < 16; i++) {
+            for (let j = 0; j < 2; j++) {
+                result.push(chars[Math.floor(Math.random() * chars.length)]);
+            }
+
+            if ([4, 6, 8, 10].includes(i + 1)) {
+                result.push("-");
+            }
+        }
+
+        return result.join("");
+    }
 };

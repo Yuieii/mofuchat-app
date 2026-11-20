@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { Log } from '../log';
-import { AppMenu } from './ui/menu';
-import { ConfigStore } from '../stores/config';
-import Button from './ui/widgets/Button.vue';
 import { FontAwesome } from './ui/icons/index.ts';
 import { platform } from "@tauri-apps/plugin-os";
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { PRODUCT_NAME } from '../constants.ts';
+
+const { title } = defineProps<{
+    title?: string
+}>();
 
 const currentPlatform = platform();
 
@@ -17,7 +17,7 @@ const titleBarHeight = (() => {
         case "macos":
             return isMain ? "48px" : "35px";
         default:
-            return "40px";
+            return isMain ? "40px" : "30px";
     }
 })();
 </script>
@@ -29,7 +29,7 @@ const titleBarHeight = (() => {
         <div data-tauri-drag-region class="flex flex-row h-full w-[8em] left-[calc(50vw_-_4em)] items-center justify-center absolute"> 
             <!-- Title bar center, floating on top -->
             <div data-tauri-drag-region class="flex flex-row w-screen items-center justify-center grow">
-                <span data-tauri-drag-region class="opacity-50 text-[90%]">MofuChat</span>
+                <span data-tauri-drag-region class="opacity-50 text-[85%] leading-[1]">{{ title ?? PRODUCT_NAME }}</span>
             </div>
         </div>
 
@@ -52,7 +52,7 @@ const titleBarHeight = (() => {
                 </div>
 
                 <div v-if="currentPlatform !== 'macos'" data-tauri-drag-region class="flex flex-row self-stretch items-stretch">
-                    <button class="flex flex-row items-center justify-center w-14 hover:bg-accent-400 transition" @click="getCurrentWindow().close()">
+                    <button class="z-1000 flex flex-row items-center justify-center w-14 hover:bg-accent-400 transition" @click="getCurrentWindow().close()">
                         <FontAwesome.Xmark class="h-5 fill-white" />
                     </button>
                 </div>

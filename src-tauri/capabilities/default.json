@@ -26,6 +26,15 @@
     "core:window:allow-toggle-maximize",
     "core:webview:allow-create-webview-window",
     "decorum:allow-show-snap-overlay",
-    "os:default"
+    "os:default",
+
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://www.twitch.tv/activate*"
+        }
+      ]
+    }
   ]
 }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::comments::Comment;
+use crate::comments::{Comment, CommentPlatform};
 
 mod twitch;
 
@@ -25,8 +25,9 @@ pub enum ServiceEvent {
         id: String,
     },
     RequiresSignIn {
-        id: String,
+        platform: CommentPlatform,
         code: Option<String>,
         url: String,
+        expires_in: u64
     },
 }

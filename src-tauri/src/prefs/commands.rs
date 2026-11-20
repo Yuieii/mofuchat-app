@@ -1,6 +1,6 @@
 use crate::state::ManagerExt;
 use eyre::Result;
-use tauri::{AppHandle, command};
+use tauri::{AppHandle, Emitter, WebviewWindow, command};
 
 use super::Prefs;
 
@@ -10,7 +10,9 @@ pub async fn get_prefs(app: AppHandle) -> Prefs {
 }
 
 #[tauri::command]
-pub async fn set_prefs(value: Prefs, app: AppHandle) {
+pub async fn set_prefs(value: Prefs, window: WebviewWindow, app: AppHandle) {
     let mut prefs = app.lock_prefs().await;
     let _ = prefs.set(value, &app);
+
+    let _ = app.emit("mofu://settings/invalidated", window.label());
 }

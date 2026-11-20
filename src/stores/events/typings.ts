@@ -1,15 +1,24 @@
+import { Prettify } from "../../types";
 import { RGBColor, Service } from "../config";
 
 export interface MofuEventTypeLookup {
     serviceConnected: { id: string };
     serviceDisconnected: { id: string };
     serviceDeactivated: { id: string };
-    commentCreated: MofuComment
+    commentCreated: MofuComment,
+    requiresSignIn: {
+        platform: keyof MofuServiceList,
+        code?: string,
+        url: string,
+        expiresIn: number
+    }
 }
 
 export interface MofuServiceList { 
     twitch: MofuTwitchCommentData
 }
+
+export type MofuServiceVariant = keyof MofuServiceList;
 
 export interface MofuCommentData {
     id: string;
@@ -55,5 +64,12 @@ export type MofuCommentRenderer =
     | MofuCommentEmoteRenderer
     | MofuCommentMentionRenderer;
 
-export type MofuEvent<K extends keyof MofuEventTypeLookup = keyof MofuEventTypeLookup> =
-    K extends infer A ? A extends keyof MofuEventTypeLookup ? { event: A, data: MofuEventTypeLookup[A] } : never : never;
+type MofuEventData<K> = K extends infer A
+    ? A extends keyof MofuEventTypeLookup
+        ? MofuEventTypeLookup[A]
+        : unknown
+    : never;
+
+export type MofuEvent<K extends string = string> = Prettify<K extends any
+    ? { event: K, data: MofuEventData<K> }
+    : { event: string, data: unknown }>;

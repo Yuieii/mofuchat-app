@@ -7,7 +7,7 @@ const { positionArea } = defineProps<TooltipRootProps>();
 
 <template>
     <div class="inline-flex">
-        <Tooltip.Root :open-delay="0" :close-delay="100" :position-area>
+        <Tooltip.Root :open-delay="0" :close-delay="100" :position-area="positionArea ?? 'bottom'">
             <slot />
         </Tooltip.Root>
     </div>

@@ -5,3 +5,11 @@
         @content;
     }
 }
+
+@mixin selector-for-all-nested {
+    &,
+    &::before, &::after, &::backdrop,
+    &::file-selector-button {
+        @content;
+    }
+}

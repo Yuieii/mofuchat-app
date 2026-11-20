@@ -1,6 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import { reactive } from "vue";
+import { onMounted, onUnmounted, reactive } from "vue";
 import { Log } from "../log";
+import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export interface RGBColor {
     /** The red component ranged from 0 to 255. */
@@ -27,7 +29,30 @@ export interface InternalConfigModel {
     migrations: VersionMigrations;
 }
 
+export interface SpeechConfig { 
+    volume: number;
+    rate: number;
+    pitch: number;
+}
+
+export interface AppConfig { 
+    darkMode: boolean;
+}
+
+export type MofuWindowStyles = "normal" | "mica" | "acrylic" | "vibrancy" | "glass";
+
+export interface MofuConfig { 
+    windowStyle: MofuWindowStyles;
+}
+
+export interface Config { 
+    speech: SpeechConfig;
+    app: AppConfig;
+    mofu: MofuConfig;
+}
+
 export interface ConfigModel { 
+    config: Config;
     __internal__: InternalConfigModel;
     services: Service[];
 }
@@ -55,6 +80,27 @@ export const ConfigStore = reactive({
 
     async saveConfig() {
         logger.log("Saving config...");
+        logger.log(this.data);
         await invoke("set_prefs", { value: this.data });
     },
 });
+
+export function useConfig() {
+    const promise = listen("mofu://settings/invalidated", event => {
+        const commandLabel = event.payload;
+        const currentLabel = getCurrentWebviewWindow().label;
+        
+        if (commandLabel != currentLabel) {
+            ConfigStore.loadConfig();
+        }
+    });
+
+    onMounted(async () => { 
+        await ConfigStore.loadConfig();
+    });
+
+    onUnmounted(async () => { 
+        const unlisten = await promise;
+        unlisten();
+    });
+}

@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { Switch } from '@vuetify/v0';
 
+const { disabled } = defineProps<{
+  disabled?: boolean
+}>();
+
 const model = defineModel<boolean>({
     default: false
 });
@@ -10,6 +14,8 @@ const model = defineModel<boolean>({
     <Switch.Root
       v-model="model"
       class="inline-flex items-center border-none bg-transparent p-0 outline-none rounded-full"
+      :class="disabled ? 'opacity-40' : ''"
+      :disabled
     >
       <Switch.Track
         class="relative inline-flex items-center w-10 h-5 rounded-full backdrop-blur-lg transition-colors bg-[#61384633] data-[state=checked]:bg-accent-500"

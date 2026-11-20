@@ -23,7 +23,11 @@ pub struct AppState {
 pub fn setup(app: &mut App) -> Result<()> {
     let (event_tx, _) = broadcast::channel(512);
 
-    let prefs = Prefs::try_from_onecomme(app.handle()).unwrap_or_else(|_| Prefs::default());
+    let prefs = Prefs::try_from_onecomme(app.handle())
+        .unwrap_or_else(|err| {
+            println!("Error while reading OneComme config: {:?}", err);
+            Prefs::default()
+        });
 
     let state = AppState {
         event_tx,
