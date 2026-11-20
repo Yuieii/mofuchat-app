@@ -10,6 +10,7 @@ import ColorPicker from "./ui/widgets/ColorPicker.vue";
 import { ConfigStore } from "../stores/config";
 import { AppAlertDialog } from "./ui/dialog/index.ts";
 import { invoke } from "@tauri-apps/api/core";
+import { useDebouncedComputed } from "../composables/index.ts";
 
 type Item = Service;
 type Kinds = { type: "item", value: Item };
@@ -56,6 +57,24 @@ function deleteService() {
     config.services.splice(index, 1);
 }
 
+const serviceName = useDebouncedComputed({
+    get() {
+        return item.name;
+    },
+    set(value) {
+        item.name = value;
+    }
+});
+
+const serviceUrl = useDebouncedComputed({
+    get() {
+        return item.url;
+    },
+    set(value) {
+        item.url = value;
+    }
+});
+
 watch([
     () => item.name,
     () => item.url,
@@ -86,10 +105,10 @@ onBeforeUnmount(() => ticket.unregister());
                     <ColorPicker v-model="item.color" @commit="ConfigStore.saveConfig()" @change="(c) => item.color = c" />
                 </AppPopover.Content>
             </AppPopover.Root>
-            <input class="text-accent-700 grow" v-model="item.name" />
+            <input class="text-accent-700 grow" v-model="serviceName" />
         </div>
         <div class="border-[#0002] flex flex-row justify-stretch items-stretch">
-            <input class="text-accent-700 grow px-3" v-model="item.url" />
+            <input class="text-accent-700 grow px-3" v-model="serviceUrl" />
         </div>
         <div class="border-[#0002] grid grid-cols-subgrid col-span-5">
             <div class="flex flex-row justify-center items-center px-3">

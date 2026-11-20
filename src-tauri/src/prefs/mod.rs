@@ -1,8 +1,8 @@
-use std::{default, fs};
+use std::fs;
 
 use eyre::Result;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, path::BaseDirectory};
+use tauri::{AppHandle, Manager, WebviewWindow};
 use window_vibrancy::*;
 
 pub mod commands;
@@ -16,7 +16,7 @@ pub struct SpeechConfig {
 }
 
 impl SpeechConfig {
-    pub fn replace(&mut self, other: Self, app: &AppHandle) {
+    pub fn replace(&mut self, other: Self, _app: &AppHandle) {
         self.volume = other.volume;
         self.rate = other.rate;
         self.pitch = other.pitch;
@@ -58,11 +58,6 @@ pub type VisualStyle = WindowsVisualStyle;
 
 #[cfg(target_os = "macos")]
 pub type VisualStyle = MacOsVisualStyle;
-
-#[derive(Default, Clone, Debug)]
-pub struct MofuReplaceResult {
-    pub mica_dirty: bool,
-}
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
@@ -173,7 +168,7 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
-    pub fn replace(&mut self, other: Self, app: &AppHandle) {
+    pub fn replace(&mut self, other: Self, _app: &AppHandle) {
         self.dark_mode = other.dark_mode;
     }
 }
@@ -200,17 +195,10 @@ impl Config {
         self.app.replace(other.app, app);
         self.mofu.replace(other.mofu, app);
 
-        if (visual_dirty) {
+        if visual_dirty {
             for window in app.webview_windows().values() {
                 let _ = self.mofu.apply_window_style(app, window, self.app.dark_mode);
             }
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    fn apply_new_mica(&self, app: &AppHandle) {
-        for window in app.webview_windows().values() {
-            let _ = window_vibrancy::apply_mica(window, Some(self.app.dark_mode));
         }
     }
 }
@@ -288,10 +276,6 @@ impl Prefs {
 
     pub fn get_service_by_id(&self, id: &str) -> Option<&Service> {
         self.services.iter().find(|s| s.id == id)
-    }
-
-    pub fn get_service_by_url(&self, url: &str) -> Option<&Service> {
-        self.services.iter().find(|s| s.url == url)
     }
 }
 

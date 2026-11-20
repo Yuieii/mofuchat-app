@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, toRef, TransitionGroup, watch } from "vue";
+import { computed, onMounted, ref, toRef, TransitionGroup, watch } from "vue";
 import "./assets/scss/style.scss";
 
 import Button from "./components/Button.vue";
@@ -14,7 +14,7 @@ import { FontAwesome } from "./components/ui/icons/index.ts";
 import Switch from "./components/ui/widgets/Switch.vue";
 import NumberInput from "./components/ui/widgets/NumberInput.vue";
 import { platform, version } from "@tauri-apps/plugin-os";
-import { ConfigStore, MofuConfig } from "./stores/config.ts";
+import { ConfigStore, MofuConfig, useConfig } from "./stores/config.ts";
 import SettingsPage from "./components/ui/settings/SettingsPage.vue";
 import { useWindowStyling } from "./composables/index.ts";
 
@@ -68,6 +68,8 @@ const maxWSize = "max-w-[1280px]";
 
 const { defaultBackground } = useWindowStyling();
 
+const { loaded } = useConfig();
+
 watch(() => visualStyle.value, async s => { 
     if (!initialized.value) return;
 
@@ -81,7 +83,7 @@ watch(() => visualStyle.value, async s => {
 
 onMounted(async () => {
     initialized.value = false;
-    await ConfigStore.loadConfig();
+    await loaded;
 
     const config = ConfigStore.data!.config;
 

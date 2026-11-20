@@ -1,6 +1,5 @@
 use crate::state::ManagerExt;
-use eyre::Result;
-use tauri::{AppHandle, Emitter, WebviewWindow, command};
+use tauri::{AppHandle, Emitter, WebviewWindow};
 
 use super::Prefs;
 

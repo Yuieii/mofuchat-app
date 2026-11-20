@@ -1,4 +1,4 @@
-import { toRef, watch } from "vue";
+import { customRef, toRef, watch } from "vue";
 import { ConfigStore, MofuWindowStyles } from "../stores/config";
 
 function getDarkMode() {
@@ -20,6 +20,42 @@ export function useTheme() {
     });
 
     return { isDark, isLight, theme };
+}
+
+export function useDebouncedComputed<T>(value: { get(): T, set(value: T): void }, delay: number = 1000) {
+    let timeout: number = -1;
+    
+    return customRef((track, trigger) => ({
+        get() {
+            track();
+            return value.get();
+        },
+        set(newValue: T) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                value.set(newValue);
+                trigger();
+            }, delay);
+        }
+    }));
+}
+
+export function useDebouncedRef<T>(value: T, delay: number = 1000) {
+    let timeout: number = -1;
+
+    return customRef((track, trigger) => ({
+        get() {
+            track();
+            return value;
+        },
+        set(newValue: T) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                value = newValue;
+                trigger();
+            }, delay);
+        }
+    }));
 }
 
 export function useWindowStyling() {

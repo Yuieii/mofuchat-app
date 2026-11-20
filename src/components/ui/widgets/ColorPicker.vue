@@ -95,7 +95,6 @@ function setCurrentColorMode(mode: ColorKind) {
             });
             models.s = computed(() => {
                 return [Math.round(Utils.rgbToHsv(rgb.r[0], rgb.g[0], rgb.b[0])[1] * 100)];
-
             });
             models.v = computed(() => {
                 return [Math.round(Utils.rgbToHsv(rgb.r[0], rgb.g[0], rgb.b[0])[2] * 100)];

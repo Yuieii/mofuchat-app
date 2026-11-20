@@ -4,11 +4,9 @@ use async_trait::async_trait;
 use eyre::Result;
 use futures_util::future::join_all;
 use tauri::AppHandle;
-use tokio::sync::broadcast;
 
 use crate::{
-    prefs::Service,
-    services::{ServiceEvent, adapter, twitch},
+    services::twitch,
     state::ManagerExt,
 };
 

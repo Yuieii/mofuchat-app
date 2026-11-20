@@ -69,7 +69,14 @@ export const ConfigStore = reactive({
 
         try {
             const config = await invoke<ConfigModel>("get_prefs");
-            this.data = reactive(config);
+            
+            if (this.data == null) {
+                this.data = reactive(config);
+            } else {
+                this.data.config = config.config;
+                this.data.services = config.services;
+            }
+
             logger.log(config);
         } catch (ex) { 
             logger.error(ex);
@@ -95,12 +102,20 @@ export function useConfig() {
         }
     });
 
+    let resolver: (() => void) | null = null;
+    const loaded = new Promise<void>(resolve => {
+        resolver = resolve;
+    });
+
     onMounted(async () => { 
         await ConfigStore.loadConfig();
+        if (resolver) resolver();
     });
 
     onUnmounted(async () => { 
         const unlisten = await promise;
         unlisten();
     });
+    
+    return { loaded };
 }

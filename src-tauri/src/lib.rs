@@ -8,8 +8,6 @@ use tauri::RunEvent;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
-
-use crate::prefs::VisualStyle;
 use crate::{services::commands::toggle_channel, state::ManagerExt};
 
 #[tauri::command]
@@ -38,7 +36,7 @@ async fn open_settings_window(app: AppHandle) {
 
     let prefs = app.lock_prefs().await;
     let dark_mode = prefs.config.app.dark_mode;
-    let visual_style = prefs.config.mofu.window_style.clone();
+    drop(prefs);
 
     let window = tauri::WebviewWindowBuilder::new(
         &app,
@@ -98,10 +96,7 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
         match event {
             #[cfg(target_os = "windows")]
             TrayIconEvent::DoubleClick {
-                id,
-                position,
-                rect,
-                button,
+                button, ..
             } => {
                 use tauri::tray::MouseButton;
                 if button == MouseButton::Left {
@@ -157,7 +152,7 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
     apply_window_effects(&app.handle().clone(), &window, dark_mode)?;
 
     let handle = app.handle().clone();
-    let mut rx = handle.app_state().event_tx.subscribe();
+    let mut rx = handle.event_tx().subscribe();
 
     let h = handle.clone();
     tauri::async_runtime::spawn(async move {

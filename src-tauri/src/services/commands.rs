@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use eyre::Result;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, command};
+use tauri::AppHandle;
 
 use super::ServiceEvent;
 use crate::state::ManagerExt;
@@ -53,22 +53,24 @@ pub async fn toggle_channel(app: AppHandle, service_id: String) -> Result<(), Er
         .ok_or_else(|| Error::UnsupportedURL)?;
 
     if !service.enabled {
-        let _ = state.event_tx.send(ServiceEvent::ServiceDeactivated {
+        let _ = app.event_tx().send(ServiceEvent::ServiceDeactivated {
             id: service_id.clone(),
         });
+
         adapter
             .dispose(service_id.clone(), app.clone())
             .await
             .or_else(|_| Err(Error::Unknown))?;
+        
         return Ok(());
     }
 
     let cloned = app.clone();
-    let tx = state.event_tx.clone();
+    let tx = app.event_tx().clone();
     let cid = service_id.clone();
 
     let handle = tokio::spawn(async move {
-        log::trace!("Run adapter");
+        log::trace!("Running adapter for service: {service:?}");
         if let Err(err) = adapter.run(cid.clone(), service.url.clone(), cloned).await {
             let _ = tx.send(ServiceEvent::ServiceDisconnected { id: cid });
             println!("Error! {:?}", err);

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use async_trait::async_trait;
 use eyre::Result;
@@ -9,13 +9,15 @@ use tokio::{
 };
 
 use crate::{
-    prefs::Prefs,
-    services::{ServiceEvent, adapter::AdapterRegistry},
+    comments::Comment, prefs::Prefs, services::{ServiceEvent, adapter::AdapterRegistry},
 };
+
+const COMMENT_LIMIT: usize = 1000;
 
 pub struct AppState {
     pub event_tx: broadcast::Sender<ServiceEvent>,
     pub active_tasks: Mutex<HashMap<String, JoinHandle<()>>>,
+    pub comments: Mutex<VecDeque<Comment>>,
     pub prefs: Mutex<Prefs>,
     pub registry: AdapterRegistry,
 }
@@ -36,6 +38,7 @@ pub fn setup(app: &mut App) -> Result<()> {
         prefs: Mutex::new(prefs),
         active_tasks: Mutex::new(HashMap::new()),
         registry: AdapterRegistry::new(),
+        comments: Mutex::new(VecDeque::with_capacity(1000)),
     };
 
     app.manage(state);
@@ -51,6 +54,26 @@ impl AppState {
     pub async fn lock_active_tasks(&self) -> MutexGuard<'_, HashMap<String, JoinHandle<()>>> {
         self.active_tasks.lock().await
     }
+
+    pub fn event_tx(&self) -> &broadcast::Sender<ServiceEvent> {
+        &self.event_tx
+    }
+    
+    pub async fn lock_comments(&self) -> MutexGuard<'_, VecDeque<Comment>> {
+        self.comments.lock().await
+    }
+
+    pub async fn push_comment(&self, comment: Comment) -> Result<()> {
+        let mut comments = self.lock_comments().await;
+        if (comments.len() == COMMENT_LIMIT) {
+            comments.pop_front();
+        }
+        comments.push_back(comment.clone());
+
+        self.event_tx().send(ServiceEvent::CommentCreated(comment))?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -63,6 +86,18 @@ pub trait ManagerExt<R> {
 
     async fn lock_prefs(&self) -> MutexGuard<'_, Prefs> {
         self.app_state().lock_prefs().await
+    }
+
+    fn event_tx(&self) -> &broadcast::Sender<ServiceEvent> {
+        self.app_state().event_tx()
+    }
+
+    async fn lock_comments(&self) -> MutexGuard<'_, VecDeque<Comment>> {
+        self.app_state().lock_comments().await
+    }
+
+    async fn push_comment(&self, comment: Comment) -> Result<()> {
+        self.app_state().push_comment(comment).await
     }
 }
 
