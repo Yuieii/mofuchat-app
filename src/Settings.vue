@@ -13,7 +13,7 @@ import SettingsItem from "./components/ui/settings/SettingsItem.vue";
 import { FontAwesome } from "./components/ui/icons/index.ts";
 import Switch from "./components/ui/widgets/Switch.vue";
 import NumberInput from "./components/ui/widgets/NumberInput.vue";
-import { platform } from "@tauri-apps/plugin-os";
+import { platform, version } from "@tauri-apps/plugin-os";
 import { ConfigStore, MofuConfig } from "./stores/config.ts";
 import SettingsPage from "./components/ui/settings/SettingsPage.vue";
 import { useWindowStyling } from "./composables/index.ts";
@@ -55,8 +55,10 @@ const visualStyles: VisualStyle[] = [
     { id: "mica",     name: "Windows 11 Mica",    platform: ["windows"] },
     { id: "acrylic",  name: "Windows 10 Acrylic", platform: ["windows"] },
     { id: "vibrancy", name: "macOS 毛玻璃背景",   platform: ["macos"] },
-    { id: "glass",    name: "macOS Liquid Glass", platform: ["macos"] },
-].filter(c => c.platform.includes(currentPlatform));
+    { id: "glass",    name: "macOS Liquid Glass", platform: ["macos"], requirement: () => parseInt(version().split(".")[0]) >= 26 },
+].filter(c => c.platform.includes(currentPlatform) && (!c.requirement || c.requirement()));
+
+console.log(version());
 
 const visualStyle = ref<VisualStyle>(visualStyles[0]);
 
