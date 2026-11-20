@@ -168,7 +168,7 @@ const { defaultBackground } = useWindowStyling();
                                 <AppSplitter.Panel :default-size="50" :min-size="30">
                                     <div class="flex flex-col w-full h-full max-w-full max-h-full">
                                         <div class="flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
-                                            <span class="text-accent-400 font-black text-sm px-3 py-2">禮物/超級留言</span>
+                                            <span class="text-accent-400 font-black text-sm px-3 py-2 text-nowrap">禮物/超級留言</span>
                                             <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
                                         </div>
 

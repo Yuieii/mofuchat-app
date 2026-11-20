@@ -28,6 +28,6 @@ pub enum ServiceEvent {
         platform: CommentPlatform,
         code: Option<String>,
         url: String,
-        expires_in: u64
+        expires_in: u64,
     },
 }

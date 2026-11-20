@@ -27,7 +27,6 @@
     "core:webview:allow-create-webview-window",
     "decorum:allow-show-snap-overlay",
     "os:default",
-
     {
       "identifier": "opener:allow-open-url",
       "allow": [
@@ -35,6 +34,7 @@
           "url": "https://www.twitch.tv/activate*"
         }
       ]
-    }
+    },
+    "log:default"
   ]
 }

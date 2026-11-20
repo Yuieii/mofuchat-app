@@ -7,7 +7,9 @@ use tauri::AppHandle;
 use tokio::sync::broadcast;
 
 use crate::{
-    prefs::Service, services::{ServiceEvent, adapter, twitch}, state::ManagerExt,
+    prefs::Service,
+    services::{ServiceEvent, adapter, twitch},
+    state::ManagerExt,
 };
 
 #[async_trait]
@@ -40,17 +42,24 @@ impl AdapterRegistry {
     }
 
     pub async fn terminate(&self, app: &AppHandle) {
+        log::trace!("Obtaining active tasks...");
         let tasks = app.lock_active_tasks().await;
+        log::trace!("Terminating active tasks...");
         for task in tasks.values() {
             task.abort();
         }
+        drop(tasks);
 
-        let futures: Vec<_> = self.adapters
+        log::trace!("Terminating active tasks complete");
+
+        let futures: Vec<_> = self
+            .adapters
             .iter()
             .map(|adapter| adapter.terminate())
             .collect();
 
+        log::trace!("Terminating adapters");
         join_all(futures).await;
-        println!("All adapter terminated");
+        log::trace!("All adapter terminated");
     }
 }

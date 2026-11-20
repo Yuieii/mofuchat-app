@@ -42,8 +42,8 @@ export function useWindowStyling() {
             normal: "bg-[#fffe]",
             mica: "",
             acrylic: "bg-[#fff8]",
-            vibrancy: "",
-            glass: ""
+            vibrancy: "bg-[#fff5]",
+            glass: "bg-[#fff5]"
         };
 
         return table[currentStyling.value];

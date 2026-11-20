@@ -30,10 +30,10 @@ impl std::error::Error for Error {}
 #[tauri::command]
 pub async fn toggle_channel(app: AppHandle, service_id: String) -> Result<(), Error> {
     let mut tasks = app.lock_active_tasks().await;
-
     if let Some(old_handle) = tasks.remove(&service_id) {
         old_handle.abort();
     }
+    drop(tasks);
 
     let prefs = app.lock_prefs().await.clone();
     let Some(service) = prefs
@@ -41,7 +41,6 @@ pub async fn toggle_channel(app: AppHandle, service_id: String) -> Result<(), Er
         .iter()
         .find(|service| service.id == service_id)
     else {
-        println!("Err: InvalidServiceId");
         return Err(Error::InvalidServiceId.into());
     };
 
@@ -69,13 +68,14 @@ pub async fn toggle_channel(app: AppHandle, service_id: String) -> Result<(), Er
     let cid = service_id.clone();
 
     let handle = tokio::spawn(async move {
-        println!("Run adapter");
+        log::trace!("Run adapter");
         if let Err(err) = adapter.run(cid.clone(), service.url.clone(), cloned).await {
             let _ = tx.send(ServiceEvent::ServiceDisconnected { id: cid });
             println!("Error! {:?}", err);
         }
     });
 
+    let mut tasks = app.lock_active_tasks().await;
     tasks.insert(service_id, handle);
     Ok(())
 }

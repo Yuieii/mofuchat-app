@@ -6,6 +6,7 @@
     "npm:@tailwindcss/vite@^4.3.5": "4.3.5_vite@8.3.8_sass-embedded@1.108.2",
     "npm:@tauri-apps/api@2": "2.12.4",
     "npm:@tauri-apps/cli@2": "2.12.4",
+    "npm:@tauri-apps/plugin-log@~2.10.2": "2.10.2",
     "npm:@tauri-apps/plugin-opener@2": "2.7.3",
     "npm:@tauri-apps/plugin-os@2.4": "2.4.0",
     "npm:@vitejs/plugin-vue@^6.0.7": "6.0.11_vite@8.3.8_vue@3.5.45_sass-embedded@1.108.2",
@@ -464,6 +465,12 @@
         "@tauri-apps/cli-win32-x64-msvc"
       ],
       "bin": true
+    },
+    "@tauri-apps/plugin-log@2.10.2": {
+      "integrity": "sha512-Vx6uLv9GIqzrnze3poz1LThP1dFi7PHkOVesVewlT8zhYiVFhF7lQIIGXgjh5qtUUUNTzC9/Cv1DiRcSyxI/Mw==",
+      "dependencies": [
+        "@tauri-apps/api"
+      ]
     },
     "@tauri-apps/plugin-opener@2.7.3": {
       "integrity": "sha512-Nm+v7vLBCDzYZxrmCJhpMgtPsPsKt5myMs7SMU/aBjPOmAFI1RrHfhMz7t5KlxjMOzRcelyNq1/j0pmC9SmBVA==",
@@ -1399,6 +1406,7 @@
         "npm:@tailwindcss/vite@^4.3.5",
         "npm:@tauri-apps/api@2",
         "npm:@tauri-apps/cli@2",
+        "npm:@tauri-apps/plugin-log@~2.10.2",
         "npm:@tauri-apps/plugin-opener@2",
         "npm:@tauri-apps/plugin-os@2.4",
         "npm:@vitejs/plugin-vue@^6.0.7",

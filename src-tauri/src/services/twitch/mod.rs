@@ -22,8 +22,8 @@ use twitch_api::types::{EmoteUrlBuilder, EventSubId};
 
 use twitch_api::{
     twitch_oauth2::{
-        AccessToken, ClientId, DeviceUserTokenBuilder, RefreshToken, TwitchToken,
-        UserToken, client::Client,
+        AccessToken, ClientId, DeviceUserTokenBuilder, RefreshToken, TwitchToken, UserToken,
+        client::Client,
     },
     types::Nickname,
 };
@@ -43,16 +43,13 @@ const CLIENT_ID: &str = env!("TWITCH_CLIENT_ID");
 #[derive(Clone, Debug)]
 struct ErrString(String);
 
-impl std::error::Error for ErrString {
-
-}
+impl std::error::Error for ErrString {}
 
 impl Display for ErrString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -164,64 +161,61 @@ impl TwitchServiceAdapter {
 
         let channel_badges = self
             .client
-            .req_get(GetChannelChatBadgesRequest::broadcaster_id(payload.broadcaster_user_id), &token)
+            .req_get(
+                GetChannelChatBadgesRequest::broadcaster_id(payload.broadcaster_user_id),
+                &token,
+            )
             .await?
             .data;
 
-        let badges = payload.badges
+        let badges = payload
+            .badges
             .iter()
             .map(|badge| {
                 channel_badges
                     .iter()
                     .find(|b| b.set_id == badge.set_id)
-                    .or_else(|| {
-                        global_badges.iter().find(|b| b.set_id == badge.set_id)
-                    })
+                    .or_else(|| global_badges.iter().find(|b| b.set_id == badge.set_id))
                     .map(|b| b.versions.first())
                     .flatten()
                     .map(|b| (b.title.clone(), b.image_url_4x.clone()))
-                    .map(|(title, url)| {
-                        UserBadge {
-                            url,
-                            label: title
-                        }
-                    })
-                    .unwrap_or_else(|| {
-                        UserBadge {
-                            url: "".into(),
-                            label: "Unknown".into()
-                        }
+                    .map(|(title, url)| UserBadge { url, label: title })
+                    .unwrap_or_else(|| UserBadge {
+                        url: "".into(),
+                        label: "Unknown".into(),
                     })
             })
             .collect();
 
-        let renderers = payload.message.fragments
+        let renderers = payload
+            .message
+            .fragments
             .iter()
-            .map(|fragment| {
-                match fragment {
-                    Fragment::Text { text } => {
-                        CommentRenderer::Text { content: text.into() }
-                    }
-                    Fragment::Emote { text, emote } => {
-                        CommentRenderer::Emote { 
-                            name: text.into(), 
-                            url: EmoteUrlBuilder::new(&emote.id).animation_default().size_3x().render()
-                        }
-                    }
-                    Fragment::Mention { text, mention } => {
-                        CommentRenderer::Mention { content: text[1..].into() }
-                    }
-                    Fragment::Cheermote { text, cheermote } => {
-                        CommentRenderer::TwitchCheermote { 
-                            name: cheermote.prefix.clone(), 
-                            url: format!("https://d3aqoihi2n8ty8.cloudfront.net/actions/{}/dark/animated/{}/4.gif", cheermote.prefix, cheermote.tier), 
-                            bits: cheermote.bits as u32 
-                        }
-                    }
-                    _ => {
-                        CommentRenderer::Text { content: "?".into() }
-                    }
-                }
+            .map(|fragment| match fragment {
+                Fragment::Text { text } => CommentRenderer::Text {
+                    content: text.into(),
+                },
+                Fragment::Emote { text, emote } => CommentRenderer::Emote {
+                    name: text.into(),
+                    url: EmoteUrlBuilder::new(&emote.id)
+                        .animation_default()
+                        .size_3x()
+                        .render(),
+                },
+                Fragment::Mention { text, mention } => CommentRenderer::Mention {
+                    content: text[1..].into(),
+                },
+                Fragment::Cheermote { text, cheermote } => CommentRenderer::TwitchCheermote {
+                    name: cheermote.prefix.clone(),
+                    url: format!(
+                        "https://d3aqoihi2n8ty8.cloudfront.net/actions/{}/dark/animated/{}/4.gif",
+                        cheermote.prefix, cheermote.tier
+                    ),
+                    bits: cheermote.bits as u32,
+                },
+                _ => CommentRenderer::Text {
+                    content: "?".into(),
+                },
             })
             .collect();
 
@@ -306,7 +300,7 @@ impl TwitchServiceAdapter {
         let mut loop_handle = self.loop_handle.lock().await;
         let handle = tauri::async_runtime::spawn(async move {
             loop {
-                println!("Starting WebSocket gateway");
+                log::trace!("Starting WebSocket gateway");
                 let ws = reqwest::Client::builder()
                     .http1_only()
                     .build()
@@ -328,12 +322,12 @@ impl TwitchServiceAdapter {
                 let mut ws = match ws {
                     Ok(v) => v,
                     Err(err) => {
-                        println!("Error? {:?}", err);
+                        log::error!("Error? {:?}", err);
                         return;
                     }
                 };
 
-                println!("Starting WebSocket gateway loop");
+                log::trace!("Starting WebSocket gateway loop");
                 while let Ok(Some(message)) = ws.try_next().await {
                     if let reqwest_websocket::Message::Text(text) = message {
                         if let Err(_) = shared.process_ws_event(&id.clone(), &text, &app).await {
@@ -346,7 +340,7 @@ impl TwitchServiceAdapter {
 
                 let _ = shared.unsubscribe_eventsub(id.clone(), &app).await;
 
-                println!("Not receiving WebSocket because ended");
+                log::warn!("Not receiving WebSocket because ended");
                 let _ = shared.websocket_session.write().await.take();
             }
         });
@@ -387,14 +381,14 @@ impl TwitchServiceAdapter {
         drop(prefs);
 
         let login = Self::extract_login(&service.url).unwrap();
-        println!("Login name: {:?}", login);
+        log::trace!("Login name: {:?}", login);
 
         let user = self
             .client
             .get_user_from_login(&Nickname::new(login), &token)
             .await?
             .unwrap();
-        println!("User ID: {:?}", user.id.clone());
+        log::trace!("User ID: {:?}", user.id.clone());
 
         while let None = &*self.websocket_session.read().await {
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -437,12 +431,14 @@ impl TwitchServiceAdapter {
     async fn authenticate(&self, app: &AppHandle) -> Result<UserToken> {
         let pending = self.pending_auth.lock().await;
         if let Some(info) = &*pending {
-            app.app_state().event_tx.send(ServiceEvent::RequiresSignIn { 
-                platform: CommentPlatform::Twitch, 
-                code: Some(info.user_code.clone()), 
-                url: info.verification_uri.clone(), 
-                expires_in: info.expires_in
-            })?;
+            app.app_state()
+                .event_tx
+                .send(ServiceEvent::RequiresSignIn {
+                    platform: CommentPlatform::Twitch,
+                    code: Some(info.user_code.clone()),
+                    url: info.verification_uri.clone(),
+                    expires_in: info.expires_in,
+                })?;
             return Err(ErrString("Pending device code auth".into()))?;
         }
         drop(pending);
@@ -463,50 +459,51 @@ impl TwitchServiceAdapter {
         let password = entry.get_password();
 
         match password {
-            Ok(t) => {
-                match serde_json::from_str::<UserTokenModel>(&t) {
-                    Ok(m) => {
-                        match m.try_into_token(&self.client).await {
-                            Ok(res) => {
-                                if res.scopes() == scopes {
-                                    return Ok(res);
-                                } else {
-                                    println!("Scopes mismatch!");
-                                }
-                            }
-
-                            Err(error) => {
-                                println!("Failed to authenticate: {:?}", error);
-                            }
+            Ok(t) => match serde_json::from_str::<UserTokenModel>(&t) {
+                Ok(m) => match m.try_into_token(&self.client).await {
+                    Ok(res) => {
+                        if res.scopes() == scopes {
+                            return Ok(res);
+                        } else {
+                            log::error!("Scopes mismatch!");
                         }
                     }
-                    
+
                     Err(error) => {
-                        println!("Failed to deserialize info from secure storage: {:?}", error);
+                        log::error!("Failed to authenticate: {:?}", error);
                     }
+                },
+
+                Err(error) => {
+                    log::error!(
+                        "Failed to deserialize info from secure storage: {:?}",
+                        error
+                    );
                 }
-            }
+            },
 
             Err(error) => {
-                println!("Failed to get credential from secure storage: {:?}", error);
+                log::error!("Failed to get credential from secure storage: {:?}", error);
             }
         }
 
         let mut builder = DeviceUserTokenBuilder::new(CLIENT_ID, scopes);
 
         let info = builder.start(&self.client).await?;
-        println!("Device code: {:?}", info.verification_uri);
+        log::trace!("Device code: {:?}", info.verification_uri);
 
         let mut pending = self.pending_auth.lock().await;
         *pending = Some(info.clone());
         drop(pending);
 
-        app.app_state().event_tx.send(ServiceEvent::RequiresSignIn { 
-            platform: CommentPlatform::Twitch, 
-            code: Some(info.user_code.clone()), 
-            url: info.verification_uri.clone(),
-            expires_in: info.expires_in,
-        })?;
+        app.app_state()
+            .event_tx
+            .send(ServiceEvent::RequiresSignIn {
+                platform: CommentPlatform::Twitch,
+                code: Some(info.user_code.clone()),
+                url: info.verification_uri.clone(),
+                expires_in: info.expires_in,
+            })?;
 
         let result = builder
             .wait_for_code(&self.client, async |duration| {

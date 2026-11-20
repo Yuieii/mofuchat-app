@@ -2,8 +2,8 @@ use std::{default, fs};
 
 use eyre::Result;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, path::BaseDirectory};
-use window_vibrancy::clear_mica;
+use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder, path::BaseDirectory};
+use window_vibrancy::*;
 
 pub mod commands;
 
@@ -25,7 +25,11 @@ impl SpeechConfig {
 
 impl Default for SpeechConfig {
     fn default() -> Self {
-        SpeechConfig { volume: 0.5, rate: 1.0, pitch: 1.0 }
+        SpeechConfig {
+            volume: 0.5,
+            rate: 1.0,
+            pitch: 1.0,
+        }
     }
 }
 
@@ -57,16 +61,67 @@ pub type VisualStyle = MacOsVisualStyle;
 
 #[derive(Default, Clone, Debug)]
 pub struct MofuReplaceResult {
-    pub mica_dirty: bool
+    pub mica_dirty: bool,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct MofuConfig {
-    pub window_style: VisualStyle
+    pub window_style: VisualStyle,
 }
 
 impl MofuConfig {
+    pub fn apply_window_style(
+        &self,
+        app: &AppHandle,
+        window: &WebviewWindow,
+        dark_mode: bool,
+    ) -> Result<()> {
+        match self.window_style {
+            #[cfg(target_os = "windows")]
+            VisualStyle::Mica => {
+                let _ = apply_mica(window, Some(dark_mode));
+            }
+
+            #[cfg(target_os = "windows")]
+            VisualStyle::Acrylic => {
+                let _ = apply_acrylic(window, None);
+            }
+
+            #[cfg(target_os = "macos")]
+            VisualStyle::Vibrancy => {
+                let window = window.clone();
+                app.run_on_main_thread(move || {
+                    apply_vibrancy(window, NSVisualEffectMaterial::HudWindow, None, None)
+                        .expect("Failed to apply vibrancy");
+                })?;
+            }
+
+            #[cfg(target_os = "macos")]
+            VisualStyle::Glass => {
+                let window = window.clone();
+                app.run_on_main_thread(move || {
+                    let window_ = window.clone();
+                    let _ = window.with_webview(move |webview| {
+                        use objc2_web_kit::WKWebView;
+                        let webview: &WKWebView = unsafe { &*webview.inner().cast() };
+                        let options = LiquidGlassOptions::new(NSGlassEffectViewStyle::Sidebar)
+                            .radius(26.0)
+                            .interactive(true)
+                            .content_view(webview);
+
+                        apply_liquid_glass(&window_, options)
+                            .expect("Failed to apply Liquid Glass");
+                    });
+                })?;
+            }
+
+            _ => {}
+        };
+
+        Ok(())
+    }
+
     pub fn replace(&mut self, other: Self, app: &AppHandle) -> MofuReplaceResult {
         use window_vibrancy::*;
 
@@ -90,37 +145,18 @@ impl MofuConfig {
 
                     #[cfg(target_os = "macos")]
                     VisualStyle::Vibrancy => {
-                        let _ = clear_vibrancy(window);
+                        let window = window.clone();
+                        app.run_on_main_thread(move || {
+                            let _ = clear_vibrancy(window);
+                        });
                     }
 
                     #[cfg(target_os = "macos")]
                     VisualStyle::Glass => {
-                        // TODO
-                    }
-
-                    _ => {}
-                }
-
-                match self.window_style {
-                    #[cfg(target_os = "windows")]
-                    VisualStyle::Mica => {
-                        // let _ = apply_mica(window, Some(false));
-                        mica_dirty = true;
-                    }
-
-                    #[cfg(target_os = "windows")]
-                    VisualStyle::Acrylic => {
-                        let _ = apply_acrylic(window, None);
-                    }
-
-                    #[cfg(target_os = "macos")]
-                    VisualStyle::Vibrancy => {
-                        let _ = apply_vibrancy(&window_, NSVisualEffectMaterial::HudWindow, None, None);
-                    }
-
-                    #[cfg(target_os = "macos")]
-                    VisualStyle::Glass => {
-                        // TODO
+                        let window = window.clone();
+                        app.run_on_main_thread(move || {
+                            let _ = clear_liquid_glass(window);
+                        });
                     }
 
                     _ => {}
@@ -128,16 +164,14 @@ impl MofuConfig {
             }
         }
 
-        MofuReplaceResult { 
-            mica_dirty
-        }
+        MofuReplaceResult { mica_dirty }
     }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 #[serde(default, rename_all = "camelCase")]
 pub struct AppConfig {
-    pub dark_mode: bool
+    pub dark_mode: bool,
 }
 
 impl AppConfig {
@@ -162,7 +196,7 @@ impl Config {
         self.app.replace(other.app, app);
 
         let result = self.mofu.replace(other.mofu, app);
-        
+
         #[cfg(target_os = "windows")]
         {
             if result.mica_dirty || (self.mofu.window_style == VisualStyle::Mica && dark_dirty) {
@@ -205,12 +239,25 @@ pub struct Prefs {
 }
 
 impl Prefs {
+    pub fn try_from_local(app: &AppHandle) -> Result<Self> {
+        let mut path = app.path().app_data_dir()?;
+
+        let dir = path.clone();
+        fs::create_dir_all(dir)?;
+
+        path.push("config.json");
+
+        let str = fs::read_to_string(path)?;
+        let prefs = serde_json::from_str(&str)?;
+        Ok(prefs)
+    }
+
     pub fn try_from_onecomme(app: &AppHandle) -> Result<Self> {
         let mut path = app.path().data_dir()?;
         path.push("onecomme");
         path.push("config.json");
 
-        println!("OneComme config.json path: {:?}", &path);
+        log::trace!("OneComme config.json path: {:?}", &path);
 
         let str = fs::read_to_string(path)?;
         let prefs = serde_json::from_str(&str)?;
@@ -226,7 +273,7 @@ impl Prefs {
 
         path.push("config.json");
 
-        println!("Saving config to {:?}", &path);
+        log::trace!("Saving config to {:?}", &path);
         fs::write(path, str)?;
         Ok(())
     }
@@ -248,9 +295,9 @@ impl Prefs {
 
 impl Default for Prefs {
     fn default() -> Self {
-        Self { 
+        Self {
             config: Default::default(),
-            services: vec![] 
+            services: vec![],
         }
     }
 }

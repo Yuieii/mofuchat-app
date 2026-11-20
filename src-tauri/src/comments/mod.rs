@@ -5,10 +5,21 @@ use crate::prefs::{RgbColor, Service};
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum CommentRenderer {
-    Text { content: String },
-    Emote { name: String, url: String },
-    Mention { content: String },
-    TwitchCheermote { name: String, url: String, bits: u32 }
+    Text {
+        content: String,
+    },
+    Emote {
+        name: String,
+        url: String,
+    },
+    Mention {
+        content: String,
+    },
+    TwitchCheermote {
+        name: String,
+        url: String,
+        bits: u32,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -51,7 +62,7 @@ pub enum CommentData {
 
     External {
         #[serde(flatten)]
-        base: CommonCommentData
+        base: CommonCommentData,
     },
 }
 
