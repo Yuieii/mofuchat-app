@@ -104,7 +104,7 @@ const { defaultBackground } = useWindowStyling();
                         </Button>
                     </AppMenu.Activator>
 
-                    <AppMenu.Content position-area="bottom left">
+                    <AppMenu.Content position-area="bottom">
                         <AppMenu.Item @click="openSettings()">設定</AppMenu.Item>
                         <AppMenu.Item>模板</AppMenu.Item>
                         <AppMenu.Item>留言測試器</AppMenu.Item>

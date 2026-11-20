@@ -77,7 +77,9 @@ impl MofuConfig {
         window: &WebviewWindow,
         dark_mode: bool,
     ) -> Result<()> {
-        match self.window_style {
+        let window_style = &self.window_style;
+        log::trace!("Applying window style: {window_style:?}");
+        match window_style {
             #[cfg(target_os = "windows")]
             VisualStyle::Mica => {
                 let _ = apply_mica(window, Some(dark_mode));
@@ -122,13 +124,11 @@ impl MofuConfig {
         Ok(())
     }
 
-    pub fn replace(&mut self, other: Self, app: &AppHandle) -> MofuReplaceResult {
+    pub fn replace(&mut self, other: Self, app: &AppHandle) {
         use window_vibrancy::*;
 
         let original = self.window_style.clone();
         self.window_style = other.window_style;
-
-        let mut mica_dirty = false;
 
         if self.window_style != original {
             for window in app.webview_windows().values() {
@@ -163,8 +163,6 @@ impl MofuConfig {
                 }
             }
         }
-
-        MofuReplaceResult { mica_dirty }
     }
 }
 
@@ -191,16 +189,20 @@ pub struct Config {
 impl Config {
     pub fn replace(&mut self, other: Self, app: &AppHandle) {
         let dark_dirty = self.app.dark_mode != other.app.dark_mode;
+        
+        #[cfg(not(target_os = "windows"))]
+        let visual_dirty = self.mofu.window_style != other.mofu.window_style;
+
+        #[cfg(target_os = "windows")]
+        let visual_dirty = (self.mofu.window_style != other.mofu.window_style) || (self.mofu.window_style == VisualStyle::Mica && dark_dirty);
 
         self.speech.replace(other.speech, app);
         self.app.replace(other.app, app);
+        self.mofu.replace(other.mofu, app);
 
-        let result = self.mofu.replace(other.mofu, app);
-
-        #[cfg(target_os = "windows")]
-        {
-            if result.mica_dirty || (self.mofu.window_style == VisualStyle::Mica && dark_dirty) {
-                self.apply_new_mica(app);
+        if (visual_dirty) {
+            for window in app.webview_windows().values() {
+                let _ = self.mofu.apply_window_style(app, window, self.app.dark_mode);
             }
         }
     }

@@ -75,31 +75,15 @@ fn apply_window_effects(
     window.set_decorations(false)?;
 
     let window_ = window.clone();
-
     let handle = app.clone();
-    window.with_webview(move |webview| {
-        let app = handle.clone();
-        tauri::async_runtime::block_on(async move {
-            let prefs = app.lock_prefs().await;
-            let _ = prefs
-                .config
-                .mofu
-                .apply_window_style(&app, &window_, dark_mode);
-        });
-
-        // #[cfg(target_os = "macos")]
-        {
-            // use objc2_web_kit::WKWebView;
-            // let webview: &WKWebView = unsafe {&*webview.inner().cast()};
-            // let options = LiquidGlassOptions::new(NSGlassEffectViewStyle::Sidebar)
-            //     .radius(26.0)
-            //     .interactive(true)
-            //     .content_view(webview);
-
-            // apply_liquid_glass(&window_, options)
-            //     .expect("Unsupported platform! 'apply_liquid_glass' is only supported on macOS 26+");
-        }
-    })?;
+    
+    tauri::async_runtime::spawn(async move {
+        let prefs = handle.lock_prefs().await;
+        let _ = prefs
+            .config
+            .mofu
+            .apply_window_style(&handle, &window_, dark_mode);
+    });
 
     Ok(())
 }

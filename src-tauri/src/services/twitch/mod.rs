@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use cached::cached;
 use chrono::{DateTime, Local, TimeDelta};
-use futures_util::TryStreamExt;
+use futures_util::{SinkExt, TryStreamExt};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -329,10 +329,20 @@ impl TwitchServiceAdapter {
 
                 log::trace!("Starting WebSocket gateway loop");
                 while let Ok(Some(message)) = ws.try_next().await {
-                    if let reqwest_websocket::Message::Text(text) = message {
-                        if let Err(_) = shared.process_ws_event(&id.clone(), &text, &app).await {
-                            // ...
+                    match message {
+                        reqwest_websocket::Message::Text(text) => {
+                            if let Err(err) = shared.process_ws_event(&id.clone(), &text, &app).await {
+                                log::error!("Error while processing WebSocket message: {err:?}");
+                            }
                         }
+
+                        reqwest_websocket::Message::Ping(bytes) => {
+                            if let Err(err) = ws.send(reqwest_websocket::Message::Pong(bytes)).await {
+                                log::error!("Error while processing WebSocket ping: {err:?}");
+                            }
+                        }
+
+                        _ => {}
                     }
                 }
 
@@ -360,9 +370,9 @@ impl TwitchServiceAdapter {
         let mut subs = self.subscriptions.write().await;
         if let Some(subs) = subs.get(&id) {
             for sub_id in subs {
-                self.client
+                let _ = self.client
                     .delete_eventsub_subscription(sub_id, &token)
-                    .await?;
+                    .await;
             }
         }
         subs.remove(&id);
