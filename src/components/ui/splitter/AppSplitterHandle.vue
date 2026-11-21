@@ -46,7 +46,7 @@ function getClassesInner() {
 </script>
 
 <template>
-    <Splitter.Handle class="z-1000" v-bind="$attrs">
+    <Splitter.Handle class="z-1000 opacity-0" v-bind="$attrs">
         <div :class="getClasses()">
             <div :class="getClassesInner()"></div>
         </div>

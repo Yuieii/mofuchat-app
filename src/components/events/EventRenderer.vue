@@ -49,6 +49,11 @@ function renderEvent<K extends string>(ev: MofuEvent<K>): VNode | null {
                 data: event.data
             });
 
+        // case "commentCleared":
+        //     return h(EventConnection, {
+        //         class: "bg-gray-200! text-gray-700! fill-gray-700! items-center gap-2"
+        //     }, () => "已清空留言。");
+
         default:
             return h(EventConnection, {
                 class: "bg-gray-200! text-gray-700! fill-gray-700! items-center gap-2"

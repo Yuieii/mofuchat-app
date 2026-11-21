@@ -8,7 +8,7 @@ const { label, footer } = defineProps<{
 <template>
     <div class="flex flex-col">
         <span v-if="label" class="text-accent-600 px-5 py-1.5 text-sm font-black">{{ label }}</span>
-        <div class="flex flex-col bg-accent-100 rounded-xl divide-y-1 border border-accent-200">
+        <div class="flex flex-col bg-accent-100 bg-accent-alpha-50 rounded-xl divide-y-1 border border-accent-200">
             <slot />
         </div>
         <span v-if="footer" class="text-accent-600 px-5 py-1.5 text-sm font-black">{{ footer }}</span>

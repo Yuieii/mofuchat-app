@@ -92,9 +92,11 @@ pub struct CommonCommentData {
     pub timestamp: String,
     pub name: String,
     pub display_name: String,
+    pub nickname: Option<String>,
     pub profile_image: Option<String>,
     pub badges: Vec<UserBadge>,
     pub renderers: Vec<CommentRenderer>,
+    pub reply_comment_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -224,15 +224,13 @@ impl TwitchServiceAdapter {
 
         log::trace!("--- Transforming fragments into renderer");
 
-        let reply = payload.reply;
-
         let renderers = payload
             .message
             .fragments
             .iter()
             .enumerate()
             .filter_map(|(i, fragment)| {
-                if i == 0 && match fragment {
+                if payload.reply.is_some() && i == 0 && match fragment {
                     Fragment::Mention { .. } => true,
                     _ => false
                 } {
@@ -282,7 +280,9 @@ impl TwitchServiceAdapter {
                     timestamp: Local::now().to_utc().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
                     name: payload.chatter_user_login.into(),
                     display_name: payload.chatter_user_name.into(),
+                    nickname: None,
                     profile_image: chatter.profile_image_url,
+                    reply_comment_id: payload.reply.map(|r| format!("tw-{}", r.parent_message_id.to_string())),
                     badges,
                     renderers,
                 },

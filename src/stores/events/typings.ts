@@ -33,6 +33,7 @@ export interface MofuCommentData {
     badges: { url: string, label: string }[];
     renderers: MofuCommentRenderer[];
     timestamp: string;
+    replyCommentId?: string;
 }
 
 export interface MofuTwitchCommentData extends MofuCommentData { 

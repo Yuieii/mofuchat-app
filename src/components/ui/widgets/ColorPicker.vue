@@ -301,11 +301,11 @@ onUnmounted(() => {
             <div class="flex flex-col text-sm px-3 py-2 gap-2">
                 <div class="flex flex-col">
                     <span class="text-accent-500 opacity-70">HSL</span>
-                    <span class="text-accent-500 w-36">{{ models.h.value[0] }}º, {{ models.s.value[0] }}%, {{ models.v.value[0] }}%</span>
+                    <span class="select-text text-accent-500 w-36">{{ models.h.value[0] }}º, {{ models.s.value[0] }}%, {{ models.v.value[0] }}%</span>
                 </div>
                 <div class="flex flex-col">
                     <span class="text-accent-500 opacity-70">RGB</span>
-                    <span class="text-accent-500">{{ getHex() }}</span>
+                    <span class="select-text text-accent-500">{{ getHex() }}</span>
                 </div>
             </div>
         </div>

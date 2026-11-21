@@ -139,8 +139,56 @@ code {
     }        
 }
 
-@theme {
-    $-accent-color: #ac6e83;
+$-accent-color: #ac6e83;
+// $-accent-color: #73487c;
+// $-accent-color: #513c63;
+// $-accent-color: #000;
+
+::selection {
+    background: #{color.change($-accent-color, $alpha: 0.4)};
+}
+
+:root {
+    --mofu-accent-color-h: #{color.channel($-accent-color, "hue", $space: hsl)};
+    --mofu-accent-color-s: #{color.channel($-accent-color, "saturation", $space: hsl)};
+
+    transition: --mofu-accent-color-h 0.2s, --mofu-accent-color-s 0.2s;
+    
+    --mofu-text-accent-color-l: var(--mofu-accent-color-l);
+    --mofu-bg-accent-color-l: var(--mofu-accent-color-l);
+    --mofu-fill-accent-color-l: var(--mofu-accent-color-l);
+    --mofu-shadow-accent-color-l: var(--mofu-accent-color-l);
+    --mofu-drop-shadow-accent-color-l: var(--mofu-accent-color-l);
+}
+
+$-property-map: (
+    "text": "color",
+    "bg": "background-color",
+    "fill": "fill",
+    "shadow": "--tw-shadow-color",
+    "drop-shadow": "--tw-drop-shadow-color",
+    "border": "border-color",
+);
+
+:root {
+    @each $key, $value in $-property-map {
+        --mofu-#{$key}-accent-color-l: var(--mofu-accent-color-l);
+    }
+}
+
+@each $key, $value in $-property-map {
+    @utility #{$key}-accent-alpha-* {
+        --mofu-#{$key}-accent-color-a: calc(--value(integer) * 1%);
+    }
+
+    @utility #{$key}-accent-* {
+        --mofu-#{$key}-accent-color-l: calc((1000 - --value(integer)) / 10 * 1%);
+        --mofu-#{$key}-accent-color-a: 1;
+        #{$value}: hsla(var(--mofu-accent-color-h), var(--mofu-accent-color-s), var(--mofu-#{$key}-accent-color-l), var(--mofu-#{$key}-accent-color-a, 1));
+    }
+}
+
+:root {
     $-tailwind-color-grades: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950;
 
     @each $grade in $-tailwind-color-grades {

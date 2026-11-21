@@ -167,7 +167,7 @@ const { defaultBackground } = useWindowStyling();
             <div class="flex flex-row grow min-w-0 min-h-0">
                 <div class="flex flex-col grow min-w-0 min-h-0">
 
-                    <AppSplitter.Root orientation="vertical">
+                    <AppSplitter.Root class="p-1" orientation="vertical">
                         <AppSplitter.Panel :default-size="28" :min-size="10">
                             <ServiceList />
                         </AppSplitter.Panel>
@@ -179,7 +179,7 @@ const { defaultBackground } = useWindowStyling();
                             <AppSplitter.Root class="h-full" orientation="horizontal">
                                 <AppSplitter.Panel :default-size="50" :min-size="30">
                                     <div class="flex flex-col max-h-full h-full">
-                                        <div class="flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
+                                        <div class="flex flex-row justify-between items-center shrink-0 rounded-t-lg bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
                                             <span class="text-accent-400 font-black text-sm px-3 py-2">事件</span>
                                             <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
                                         </div>
@@ -195,7 +195,7 @@ const { defaultBackground } = useWindowStyling();
 
                                 <AppSplitter.Panel :default-size="50" :min-size="30">
                                     <div class="flex flex-col w-full h-full max-w-full max-h-full">
-                                        <div class="flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
+                                        <div class="flex flex-row justify-between items-center shrink-0 rounded-t-lg bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
                                             <span class="text-accent-400 font-black text-sm px-3 py-2 text-nowrap">禮物/超級留言</span>
                                             <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
                                         </div>
@@ -231,7 +231,7 @@ const { defaultBackground } = useWindowStyling();
 
                         <AppSplitter.Panel :default-size="33" :min-size="10">
                             <div class="flex flex-col w-full h-full max-w-full max-h-full">
-                                <div class="hidden flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
+                                <div class="hidden flex flex-row justify-between items-center shrink-0 rounded-t-lg bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
                                     <span class="text-accent-400 font-black text-sm px-3 py-2">禮物/超級留言</span>
                                     <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
                                 </div>

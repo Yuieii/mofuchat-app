@@ -75,7 +75,7 @@ impl AppState {
         comments.clear();
 
         self.event_tx().send(AppEvent::CommentCleared)?;
-        self.service_tx().send(ServiceEvent::CommentCleared)?;
+        // self.service_tx().send(ServiceEvent::CommentCleared)?;
         Ok(())
     }
 
