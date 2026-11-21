@@ -50,8 +50,8 @@ function removeComment() {
 </script>
 
 <template>
-    <div class="flex flex-row bg-[#f7ebf1] rounded-xl mx-2 my-1 items-stretch text-accent-700 border-1 border-accent-200 overflow-hidden">
-        <div class="shrink-0 w-1" :style="{ background: serviceCssColor() }"></div>
+    <div class="flex flex-row bg-[#f7ebf1] rounded-l-lg rounded-xl mx-2 my-1 items-stretch text-accent-700 border-1 border-accent-200 overflow-hidden">
+        <div class="shrink-0 w-1.5" :style="{ background: serviceCssColor() }"></div>
 
         <div class="grow flex flex-row gap-3 items-start px-3 py-2">
             <div class="shrink-0 py-1">
@@ -70,37 +70,39 @@ function removeComment() {
                     <CommentRenderer v-for="renderer in comment.data.renderers" :renderer />
                 </div>
 
-                <div class="bg-[#f7ebf199] backdrop-blur-lg absolute -top-1 -right-1 py-1 px-1 rounded-full group">
-                    <div class="divide-x-1 opacity-50 text-[11px] text-right flex flex-row group-hover:opacity-0">
-                        <span class="px-1.5 border-accent-300">{{ serviceName }}</span>
-                        <span class="pl-1.5 border-accent-300">{{ getTimeString(comment.data.timestamp) }}</span>
+                <div class="absolute -top-1 -right-1 flex flex-col align-end group">
+                    <div class="bg-[#f7ebf199] backdrop-blur-lg rounded-full py-1 px-1 divide-x-1 text-[11px] text-right flex flex-row group-hover:opacity-0 group-hover:h-0 group-hover:-z-10">
+                        <span class="px-1.5 border-accent-300 shrink-0 opacity-50">{{ serviceName }}</span>
+                        <span class="pl-1.5 border-accent-300 shrink-0 opacity-50">{{ getTimeString(comment.data.timestamp) }}</span>
                     </div>
-                    <div class="absolute top-1 right-1 text-[13px] text-right flex-row hidden group-hover:flex">
-                        <div class="divide-x-1 shrink-0 bg-[#a86d8122] leading-[1] rounded-full text-sm outline-none overflow-hidden">
-                            <AppTooltip.Root class="border-accent-400" position-area="bottom">
-                                <AppTooltip.Activator>
-                                    <button class="px-[0.9em] py-[0.4em] disabled:opacity-50 enabled:hover:bg-accent-400 enabled:active:bg-accent-600 transition duration-200">
-                                        <FontAwesome.AddressBook class="h-4" />
-                                    </button>
-                                </AppTooltip.Activator>
-                                <AppTooltip.Content>
-                                    <span>觀眾名單</span>
-                                </AppTooltip.Content>
-                            </AppTooltip.Root>
-                            <AppTooltip.Root class="border-accent-400" position-area="bottom">
-                                <AppTooltip.Activator>
-                                    <button class="px-[0.9em] py-[0.4em] disabled:opacity-50 enabled:hover:bg-accent-400 enabled:active:bg-accent-600 transition duration-200">
-                                        <FontAwesome.CircleStop class="h-4" />
-                                    </button>
-                                </AppTooltip.Activator>
-                                <AppTooltip.Content>
-                                    <span>停止朗讀</span>
-                                </AppTooltip.Content>
-                            </AppTooltip.Root>
-                            <AppTooltip.Root class="border-accent-400" position-area="bottom">
+                    <div class="-my-1.5 text-[13px] flex-row hidden group-hover:flex justify-end">
+                        <div class="divide-x-1 shrink-0 bg-[#a86d8122] backdrop-blur-lg leading-[1] rounded-full text-sm outline-none overflow-hidden">
+                            <AppTooltip.Root class="border-[#a86d8133]" position-area="bottom">
                                 <AppTooltip.Activator>
                                     <button 
-                                        class="px-[0.9em] py-[0.4em] disabled:opacity-50 enabled:hover:bg-accent-400 enabled:active:bg-accent-600 transition duration-200"
+                                        class="px-[0.9em] py-[0.4em] fill-accent-700 disabled:opacity-50 enabled:hover:bg-[#a86d8144] enabled:active:bg-[#a86d8166] transition duration-200">
+                                        <FontAwesome.Ban class="h-4" />
+                                    </button>
+                                </AppTooltip.Activator>
+                                <AppTooltip.Content>
+                                    <span>封鎖</span>
+                                </AppTooltip.Content>
+                            </AppTooltip.Root>
+                            <AppTooltip.Root class="border-[#a86d8133]" position-area="bottom">
+                                <AppTooltip.Activator>
+                                    <button 
+                                        class="px-[0.9em] py-[0.4em] fill-accent-700 disabled:opacity-50 enabled:hover:bg-[#a86d8144] enabled:active:bg-[#a86d8166] transition duration-200">
+                                        <FontAwesome.Copy class="h-4" />
+                                    </button>
+                                </AppTooltip.Activator>
+                                <AppTooltip.Content>
+                                    <span>複製留言</span>
+                                </AppTooltip.Content>
+                            </AppTooltip.Root>
+                            <AppTooltip.Root class="border-[#a86d8133]" position-area="bottom">
+                                <AppTooltip.Activator>
+                                    <button 
+                                        class="px-[0.9em] py-[0.4em] fill-accent-700 disabled:opacity-50 enabled:hover:bg-[#a86d8144] enabled:active:bg-[#a86d8166] transition duration-200"
                                         @click="removeComment()">
                                         <FontAwesome.Trash class="h-4" />
                                     </button>

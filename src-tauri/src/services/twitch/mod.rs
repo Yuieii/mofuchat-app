@@ -224,10 +224,23 @@ impl TwitchServiceAdapter {
 
         log::trace!("--- Transforming fragments into renderer");
 
+        let reply = payload.reply;
+
         let renderers = payload
             .message
             .fragments
             .iter()
+            .enumerate()
+            .filter_map(|(i, fragment)| {
+                if i == 0 && match fragment {
+                    Fragment::Mention { .. } => true,
+                    _ => false
+                } {
+                    None
+                } else {
+                    Some(fragment)
+                }
+            })
             .map(|fragment| match fragment {
                 Fragment::Text { text } => CommentRenderer::Text {
                     content: text.into(),
@@ -239,10 +252,10 @@ impl TwitchServiceAdapter {
                         .size_3x()
                         .render(),
                 },
-                Fragment::Mention { text, mention: _ } => CommentRenderer::Mention {
+                Fragment::Mention { text, .. } => CommentRenderer::Mention {
                     content: text[1..].into(),
                 },
-                Fragment::Cheermote { text: _, cheermote } => CommentRenderer::TwitchCheermote {
+                Fragment::Cheermote { cheermote, .. } => CommentRenderer::TwitchCheermote {
                     name: cheermote.prefix.clone(),
                     url: format!(
                         "https://d3aqoihi2n8ty8.cloudfront.net/actions/{}/dark/animated/{}/4.gif",
