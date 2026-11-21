@@ -84,7 +84,7 @@ pub async fn toggle_channel(app: AppHandle, service_id: String) -> TauriResult<(
         log::trace!("Running adapter for service: {service:?}");
         if let Err(err) = adapter.run(cid.clone(), service.url.clone(), cloned).await {
             let _ = tx.send(ServiceEvent::ServiceDisconnected { id: cid });
-            println!("Error! {:?}", err);
+            log::error!("Error! {:?}", err);
         }
     });
 

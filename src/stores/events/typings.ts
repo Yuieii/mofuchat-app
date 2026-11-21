@@ -28,10 +28,11 @@ export type MofuServiceVariant = keyof MofuServiceList;
 export interface MofuCommentData {
     id: string;
     profileImage: string;
+    name: string;
     displayName: string;
     badges: { url: string, label: string }[];
     renderers: MofuCommentRenderer[];
-    timestamp: number;
+    timestamp: string;
 }
 
 export interface MofuTwitchCommentData extends MofuCommentData { 

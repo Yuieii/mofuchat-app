@@ -141,7 +141,7 @@ impl MofuConfig {
                     #[cfg(target_os = "macos")]
                     VisualStyle::Vibrancy => {
                         let window = window.clone();
-                        app.run_on_main_thread(move || {
+                        let _ = app.run_on_main_thread(move || {
                             let _ = clear_vibrancy(window);
                         });
                     }
@@ -149,7 +149,7 @@ impl MofuConfig {
                     #[cfg(target_os = "macos")]
                     VisualStyle::Glass => {
                         let window = window.clone();
-                        app.run_on_main_thread(move || {
+                        let _ = app.run_on_main_thread(move || {
                             let _ = clear_liquid_glass(window);
                         });
                     }

@@ -29,7 +29,7 @@ function getServiceName() {
 
 const serviceName = computed(() => getServiceName());
 
-function getTimeString(timestamp: number) {
+function getTimeString(timestamp: string) {
     return new Date(timestamp).toLocaleString("en", {
         timeStyle: "medium",
     });
@@ -60,7 +60,8 @@ function removeComment() {
             
             <div class="grow relative flex flex-col">
                 <div class="flex flex-row items-center gap-1">
-                    <span>{{ comment.data.displayName }}</span>
+                    <span>{{ comment.data.displayName ?? comment.data.name }}</span>
+                    <span v-if="comment.data.displayName" class="text-xs opacity-50">({{ comment.data.name }})</span>
                     <div class="inline-flex" v-for="badge in comment.data.badges">
                         <img class="w-4 aspect-square rounded-sm" :src="badge.url" :alt="badge.label" />
                     </div>
@@ -72,7 +73,7 @@ function removeComment() {
                 <div class="bg-[#f7ebf199] backdrop-blur-lg absolute -top-1 -right-1 py-1 px-1 rounded-full group">
                     <div class="divide-x-1 opacity-50 text-[11px] text-right flex flex-row group-hover:opacity-0">
                         <span class="px-1.5 border-accent-300">{{ serviceName }}</span>
-                        <span class="pl-1.5 border-accent-300">{{ getTimeString(comment.data.timestamp * 1000) }}</span>
+                        <span class="pl-1.5 border-accent-300">{{ getTimeString(comment.data.timestamp) }}</span>
                     </div>
                     <div class="absolute top-1 right-1 text-[13px] text-right flex-row hidden group-hover:flex">
                         <div class="divide-x-1 shrink-0 bg-[#a86d8122] leading-[1] rounded-full text-sm outline-none overflow-hidden">

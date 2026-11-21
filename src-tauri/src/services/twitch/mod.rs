@@ -1,4 +1,6 @@
 use std::fmt::Display;
+use std::mem::ManuallyDrop;
+use std::sync::Weak;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
@@ -8,7 +10,7 @@ use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri::async_runtime::JoinHandle;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use twitch_api::HelixClient;
 use twitch_api::common::chat::Fragment;
@@ -86,6 +88,7 @@ impl UserTokenModel {
 pub struct TwitchServiceAdapter {
     client: HelixClient<'static, reqwest::Client>,
     authenticate_lock: Mutex<Option<UserToken>>,
+    websocket_active: Mutex<()>,
     websocket_session: Arc<RwLock<Option<String>>>,
     subscriptions: Arc<RwLock<HashMap<String, Vec<EventSubId>>>>,
     global_badges: Mutex<Option<(Vec<BadgeSet>, DateTime<Local>)>>,
@@ -97,13 +100,16 @@ pub struct TwitchServiceAdapter {
 
     /// Service ID -> Broadcaster User ID lookup
     service_id_lookup: Arc<RwLock<HashMap<String, String>>>,
+
+    weak_self: Weak<Self>
 }
 
 impl TwitchServiceAdapter {
     pub fn new_shared() -> Arc<Self> {
-        Arc::new(Self {
+        Arc::new_cyclic(|weak| Self {
             client: HelixClient::default(),
             authenticate_lock: Mutex::new(None),
+            websocket_active: Mutex::new(()),
             websocket_session: Arc::new(RwLock::new(None)),
             subscriptions: Arc::new(RwLock::new(HashMap::new())),
             global_badges: Mutex::new(None),
@@ -112,7 +118,17 @@ impl TwitchServiceAdapter {
 
             id_service_lookup: Arc::new(RwLock::new(HashMap::new())),
             service_id_lookup: Arc::new(RwLock::new(HashMap::new())),
+
+            weak_self: weak.clone()
         })
+    }
+
+    async fn lock_read_websocket_session(&self) -> RwLockReadGuard<'_, Option<String>> {
+        self.websocket_session.read().await
+    }
+
+    async fn lock_write_websocket_session(&self) -> RwLockWriteGuard<'_, Option<String>> {
+        self.websocket_session.write().await
     }
 
     fn extract_login(url: &str) -> Option<String> {
@@ -150,6 +166,7 @@ impl TwitchServiceAdapter {
         payload: ChannelChatMessageV1Payload,
         app: &AppHandle,
     ) -> Result<()> {
+        log::trace!("--- Start processing comment ---- first");
         let service_lookup = self.id_service_lookup.read().await;
         let id = service_lookup.get(payload.broadcaster_user_id.as_str())
             .expect("Service lookup failed").clone();
@@ -194,7 +211,7 @@ impl TwitchServiceAdapter {
                     .iter()
                     .find(|b| b.set_id == badge.set_id)
                     .or_else(|| global_badges.iter().find(|b| b.set_id == badge.set_id))
-                    .map(|b| b.versions.first())
+                    .map(|b| b.versions.iter().find(|v| v.id == badge.id))
                     .flatten()
                     .map(|b| (b.title.clone(), b.image_url_4x.clone()))
                     .map(|(title, url)| UserBadge { url, label: title })
@@ -248,7 +265,8 @@ impl TwitchServiceAdapter {
             data: CommentData::Twitch {
                 base: CommonCommentData {
                     id: format!("tw-{}", payload.message_id.as_str()),
-                    timestamp: Local::now().to_utc().timestamp() as u64,
+                    user_id: payload.chatter_user_id.to_string(),
+                    timestamp: Local::now().to_utc().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
                     name: payload.chatter_user_login.into(),
                     display_name: payload.chatter_user_name.into(),
                     profile_image: chatter.profile_image_url,
@@ -278,12 +296,12 @@ impl TwitchServiceAdapter {
     async fn process_ws_event(&self, frame: &str, app: &AppHandle) -> Result<()> {
         match Event::parse_websocket(frame)? {
             EventsubWebsocketData::Welcome { payload, .. } => {
-                let mut session_id = self.websocket_session.write().await;
+                let mut session_id = self.lock_write_websocket_session().await;
                 session_id.replace(payload.session.id.into_owned());
                 drop(session_id);
             }
             EventsubWebsocketData::Reconnect { .. } => {
-                let mut session_id = self.websocket_session.write().await;
+                let mut session_id = self.lock_write_websocket_session().await;
                 // TODO: Handle reconnect
                 session_id.take();
                 drop(session_id);
@@ -297,102 +315,124 @@ impl TwitchServiceAdapter {
         Ok(())
     }
 
+    async fn gateway_loop(&self, app: AppHandle) {
+        log::trace!("Checking gateway loop...");
+        let Ok(_lock) = self.websocket_active.try_lock() else {
+            log::trace!("Already has active WebSocket loop. Exiting for this one");
+            return
+        };
+    
+        log::trace!("Running gateway loop...");
+
+        loop {
+            let token = self.user_token().await;
+
+            let Ok(token) = token else {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                continue;
+            };
+
+            let _token = match token {
+                Some(token) => token,
+                None => match self.authenticate(&app).await {
+                    Ok(token) => token,
+                    Err(err) => {
+                        log::trace!("Failed to authenticate: {err:?}");
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
+                }
+            };
+
+            log::trace!("Starting WebSocket gateway");
+            let ws = reqwest::Client::builder()
+                .http1_only()
+                .build()
+                .expect("Failed to create http client")
+                .get("wss://eventsub.wss.twitch.tv/ws")
+                .upgrade()
+                .send()
+                .await;
+
+            let ws = match ws {
+                Ok(v) => v,
+                Err(_) => {
+                    log::warn!("Failed to upgrade to WebSocket. Retrying");
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    continue;
+                }
+            };
+
+            let ws = ws.into_websocket().await;
+            let mut ws = match ws {
+                Ok(v) => v,
+                Err(err) => {
+                    log::error!("Error? {:?}", err);
+                    return;
+                }
+            };
+
+            log::trace!("Starting WebSocket gateway loop");
+            while let Ok(Some(message)) = ws.try_next().await {
+                match message {
+                    reqwest_websocket::Message::Text(text) => {
+                        if let Err(err) = self.process_ws_event(&text, &app).await {
+                            log::error!("Error while processing WebSocket message: {err:?}");
+                        }
+                    }
+
+                    reqwest_websocket::Message::Ping(bytes) => {
+                        if let Err(err) = ws.send(reqwest_websocket::Message::Pong(bytes)).await {
+                            log::error!("Error while processing WebSocket ping: {err:?}");
+                        }
+                    }
+
+                    reqwest_websocket::Message::Close { code, reason } => {
+                        log::warn!("Connection closed!!! code={code:?} reason={reason:?}");
+                    }
+
+                    _ => {}
+                }
+            }
+
+            let _ = app.service_tx().send(ServiceEvent::PlatformDisconnected {
+                platform: CommentPlatform::Twitch
+            });
+
+            // let _ = shared.unsubscribe_eventsub(id.clone(), &app).await;
+            let mut subs = self.subscriptions.write().await;
+            subs.clear();
+
+            log::warn!("Not receiving WebSocket because ended");
+            let _ = self.lock_write_websocket_session().await.take();
+
+            tokio::time::sleep(Duration::from_secs(5)).await;
+        }
+    }
+
     async fn start_gateway(&self, id: String, app: &AppHandle) -> Result<()> {
-        if self.websocket_session.read().await.is_some() {
+        let session = self.lock_read_websocket_session().await;
+        if session.is_some() {
             self.subscribe_eventsub(id, app).await?;
             return Ok(());
         }
+        drop(session);
 
         let app = app.clone();
-
-        // SAFETY: We exposes only Arc constuctors, so therefore all instances are Arc<Self>
-        let shared: Arc<Self> = unsafe { Arc::from_raw(self as *const _) };
+        let shared = self.weak_self.upgrade()
+            .expect("unwrapping weak pointer of self");
 
         let prefs = app.lock_prefs().await;
         let service = prefs.get_service_by_id(&id).unwrap().clone();
         let sid = service.id.clone();
         drop(prefs);
 
-        let tx = app.service_tx().clone();
-
         let id_clone = id.clone();
         let app_clone = app.clone();
         let app = app.clone();
         let mut loop_handle = self.loop_handle.lock().await;
         let handle = tauri::async_runtime::spawn(async move {
-            loop {
-                let token = shared.user_token().await;
-
-                let Ok(token) = token else {
-                    tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
-                };
-
-                let _token = match token {
-                    Some(token) => token,
-                    None => match shared.authenticate(&app).await {
-                        Ok(token) => token,
-                        Err(err) => {
-                            log::trace!("Failed to authenticate: {err:?}");
-                            tokio::time::sleep(Duration::from_secs(5)).await;
-                            continue;
-                        }
-                    }
-                };
-
-                log::trace!("Starting WebSocket gateway");
-                let ws = reqwest::Client::builder()
-                    .http1_only()
-                    .build()
-                    .expect("Failed to create http client")
-                    .get("wss://eventsub.wss.twitch.tv/ws")
-                    .upgrade()
-                    .send()
-                    .await;
-
-                let ws = match ws {
-                    Ok(v) => v,
-                    Err(_) => {
-                        log::trace!("Failed to upgrade. Retrying");
-                        tokio::time::sleep(Duration::from_secs(5)).await;
-                        continue;
-                    }
-                };
-
-                let ws = ws.into_websocket().await;
-                let mut ws = match ws {
-                    Ok(v) => v,
-                    Err(err) => {
-                        log::error!("Error? {:?}", err);
-                        return;
-                    }
-                };
-
-                log::trace!("Starting WebSocket gateway loop");
-                while let Ok(Some(message)) = ws.try_next().await {
-                    match message {
-                        reqwest_websocket::Message::Text(text) => {
-                            if let Err(err) = shared.process_ws_event(&text, &app).await {
-                                log::error!("Error while processing WebSocket message: {err:?}");
-                            }
-                        }
-
-                        reqwest_websocket::Message::Ping(bytes) => {
-                            if let Err(err) = ws.send(reqwest_websocket::Message::Pong(bytes)).await {
-                                log::error!("Error while processing WebSocket ping: {err:?}");
-                            }
-                        }
-
-                        _ => {}
-                    }
-                }
-
-                let _ = tx.send(ServiceEvent::ServiceDisconnected { id: sid.clone() });
-                let _ = shared.unsubscribe_eventsub(id.clone(), &app).await;
-
-                log::warn!("Not receiving WebSocket because ended");
-                let _ = shared.websocket_session.write().await.take();
-            }
+            shared.gateway_loop(app).await;
         });
         *loop_handle = Some(handle);
 

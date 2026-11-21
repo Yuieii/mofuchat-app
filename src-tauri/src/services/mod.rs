@@ -24,6 +24,9 @@ pub enum ServiceEvent {
     ServiceConnected {
         id: String,
     },
+    PlatformDisconnected {
+        platform: CommentPlatform,
+    },
     ServiceDisconnected {
         id: String,
     },
