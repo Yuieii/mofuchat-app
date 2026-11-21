@@ -26,7 +26,7 @@ impl AdapterRegistry {
     pub fn new() -> Self {
         Self {
             adapters: vec![
-                twitch::TwitchServiceAdapter::new(),
+                twitch::TwitchServiceAdapter::new_shared(),
                 // Arc::new(yo)
             ],
         }

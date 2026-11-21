@@ -2,16 +2,18 @@ mod comments;
 mod prefs;
 mod services;
 mod state;
+mod error;
 
 #[cfg(target_os = "macos")]
 use tauri::RunEvent;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Emitter, Manager, WebviewWindow, WindowEvent};
+use crate::error::{CommandError, ResultExt, TauriResult};
 use crate::{services::commands::toggle_channel, state::ManagerExt};
 
 #[tauri::command]
-async fn open_settings_window(app: AppHandle) {
+async fn open_settings_window(app: AppHandle) -> TauriResult<()> {
     /*
        fullscreen: false,
        resizable: true,
@@ -29,9 +31,9 @@ async fn open_settings_window(app: AppHandle) {
     */
 
     if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.show();
-        let _ = window.set_focus();
-        return;
+        window.show()?;
+        window.set_focus()?;
+        return Ok(());
     }
 
     let prefs = app.lock_prefs().await;
@@ -58,10 +60,11 @@ async fn open_settings_window(app: AppHandle) {
             .hidden_title(true)
     };
 
-    let window = window.build().unwrap();
+    let window = window.build()?;
+    apply_window_effects(&app, &window, dark_mode).tauri()?;
+    window.show()?;
 
-    apply_window_effects(&app, &window, dark_mode).unwrap();
-    window.show().unwrap();
+    Ok(())
 }
 
 fn apply_window_effects(
@@ -152,16 +155,25 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
     apply_window_effects(&app.handle().clone(), &window, dark_mode)?;
 
     let handle = app.handle().clone();
-    let mut rx = handle.event_tx().subscribe();
 
+    let mut rx = handle.service_tx().subscribe();
     let h = handle.clone();
     tauri::async_runtime::spawn(async move {
         while let Ok(event) = rx.recv().await {
-            println!("emit event pre: {:?}", &event);
+            log::trace!("emit service event: {:?}", &event);
             let _ = h.emit("mofu://services/event", &event);
-            println!("emit event post: {:?}", &event);
         }
-        println!("emit event out, this is bad");
+        log::warn!("emit event out, this is bad");
+    });
+    
+    let mut rx = handle.event_tx().subscribe();
+    let h = handle.clone();
+    tauri::async_runtime::spawn(async move {
+        while let Ok(event) = rx.recv().await {
+            log::trace!("emit app event: {:?}", &event);
+            let _ = h.emit("mofu://app/event", &event);
+        }
+        log::warn!("emit event out, this is bad");
     });
 
     let h = handle.clone();
@@ -170,6 +182,7 @@ fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error + 'static>> {
         let ids: Vec<_> = prefs.services.iter().map(|s| s.id.clone()).collect();
         drop(prefs);
 
+        // A hack to turn adapters on when they are enabled
         for id in ids {
             let _ = toggle_channel(h.clone(), id).await;
         }
@@ -203,6 +216,9 @@ pub fn run() {
             open_settings_window,
             prefs::commands::get_prefs,
             prefs::commands::set_prefs,
+            services::commands::fetch_comments_from_memory,
+            services::commands::clear_comments,
+            services::commands::check_supports_url,
             services::commands::toggle_channel,
         ])
         .build(tauri::generate_context!())

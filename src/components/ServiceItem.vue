@@ -41,9 +41,10 @@ function getClasses() {
 }
 
 function getHex() {
-    const r = item.color.r;
-    const g = item.color.g;
-    const b = item.color.b;
+    const color = serviceColor.value;
+    const r = color.r;
+    const g = color.g;
+    const b = color.b;
     return "#" + [r, g, b].map(c => c.toString(16).padStart(2, "0")).join("");
 }
 
@@ -75,11 +76,21 @@ const serviceUrl = useDebouncedComputed({
     }
 });
 
+const urlSupported = ref(true);
+
 watch([
     () => item.name,
     () => item.url,
+    () => item.color,
 ], () => { 
     ConfigStore.saveConfig();
+});
+
+watch(() => item.url, async url => { 
+    const supported = await invoke<boolean>("check_supports_url", { url });
+    urlSupported.value = supported;
+}, {
+    immediate: true
 });
 
 watch(() => item.enabled, async () => { 
@@ -88,6 +99,24 @@ watch(() => item.enabled, async () => {
         serviceId: item.id
     });
 });
+
+const serviceEnabled = useDebouncedComputed({
+    get() {
+        return item.enabled;
+    },
+    set(value) {
+        item.enabled = value;
+    }
+}, 500);
+
+const serviceColor = useDebouncedComputed({
+    get() {
+        return item.color;
+    },
+    set(value) {
+        item.color = value;
+    }
+}, 500);
 
 onBeforeUnmount(() => ticket.unregister());
 </script>
@@ -102,13 +131,19 @@ onBeforeUnmount(() => ticket.unregister());
                 </AppPopover.Activator>
 
                 <AppPopover.Content class="rounded-3xl!">
-                    <ColorPicker v-model="item.color" @commit="ConfigStore.saveConfig()" @change="(c) => item.color = c" />
+                    <ColorPicker v-model="serviceColor" @change="(c) => serviceColor = c" />
                 </AppPopover.Content>
             </AppPopover.Root>
+
+            <!-- Service name. -->
             <input class="text-accent-700 grow" v-model="serviceName" />
         </div>
         <div class="border-[#0002] flex flex-row justify-stretch items-stretch">
-            <input class="text-accent-700 grow px-3" v-model="serviceUrl" />
+            <!-- Service URL. -->
+            <input class="disabled:opacity-50 disabled:cursor-not-allowed grow px-3 transition" 
+                :class="urlSupported ? 'text-accent-700' : 'text-red-500 outline outline-red-500'"
+                v-model="serviceUrl" 
+                :disabled="item.enabled" />
         </div>
         <div class="border-[#0002] grid grid-cols-subgrid col-span-5">
             <div class="flex flex-row justify-center items-center px-3">
@@ -121,7 +156,7 @@ onBeforeUnmount(() => ticket.unregister());
                 <Switch />
             </div>
             <div class="flex flex-row justify-center items-center px-3">
-                <Switch v-model="item.enabled" />
+                <Switch v-model="serviceEnabled" />
             </div>
             <div class="flex flex-row justify-center items-center gap-3 px-3">
                 <Button disabled>

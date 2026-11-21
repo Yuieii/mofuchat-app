@@ -18,11 +18,34 @@ import { AppTooltip } from "./components/ui/tooltip/index.ts";
 import { invoke } from "@tauri-apps/api/core";
 import { useWindowStyling } from "./composables/index.ts";
 import { PRODUCT_NAME, PRODUCT_VERSION } from "./constants.ts";
-import { EventStore, useMofuEvents } from "./stores/events/index.ts";
+import { EventStore, MofuComment, MofuEvent, useMofuAppEvents, useMofuServiceEvents } from "./stores/events/index.ts";
 import { Utils } from "./utils.ts";
 
-useMofuEvents();
-useConfig();
+useMofuServiceEvents();
+
+const { eventBus } = useMofuAppEvents();
+
+eventBus.on("commentCleared", data => { 
+    console.log(data);
+});
+
+const { loaded } = useConfig();
+
+(async () => { 
+    await loaded;
+    
+    const comments = await invoke<MofuComment[]>("fetch_comments_from_memory");
+    
+    function createEvent(e: MofuEvent & { key: string }) {
+        return e
+    };
+
+    EventStore.events.splice(0, 0, ...comments.map(c => createEvent({
+        event: "commentCreated",
+        data: c,
+        key: c.data.id
+    })))
+})();
 
 const logger = Log.createLogger("App");
 const currentPlatform = platform();
@@ -39,10 +62,15 @@ function createNewService() {
         name: "#",
         url: "https://",
         color: { r: 0, g: 0, b: 0 },
-        enabled: true,
+        enabled: false,
     });
 
     logger.log("Created new service");
+}
+
+function clearComments() {
+    invoke("clear_comments");
+    EventStore.events.splice(0, EventStore.events.length);
 }
 
 const { defaultBackground } = useWindowStyling();
@@ -87,7 +115,7 @@ const { defaultBackground } = useWindowStyling();
                         <AppTooltip.Activator>
                             <button 
                                 class="px-[0.9em] py-[0.4em] disabled:opacity-50 enabled:hover:bg-accent-400 enabled:active:bg-accent-600 transition duration-200"
-                                @click="EventStore.events.splice(0, EventStore.events.length)">
+                                @click="clearComments()">
                                 <FontAwesome.Trash class="h-4" />
                             </button>
                         </AppTooltip.Activator>
@@ -150,13 +178,13 @@ const { defaultBackground } = useWindowStyling();
 
                             <AppSplitter.Root class="h-full" orientation="horizontal">
                                 <AppSplitter.Panel :default-size="50" :min-size="30">
-                                    <div class="flex flex-col max-h-full">
+                                    <div class="flex flex-col max-h-full h-full">
                                         <div class="flex flex-row justify-between items-center shrink-0 bg-white backdrop-blur-xl z-1 border-b-1 border-b-[#0003]">
                                             <span class="text-accent-400 font-black text-sm px-3 py-2">事件</span>
                                             <div class="text-accent-400 font-black text-sm px-3 py-2">Tools</div>
                                         </div>
                                         <div class="grow overflow-x-hidden overflow-y-auto overscroll-contain min-h-0">
-                                            <div class="flex flex-col min-h-0">
+                                            <div class="flex flex-col min-h-0 h-full">
                                                 <EventsView />
                                             </div>
                                         </div>
@@ -176,16 +204,16 @@ const { defaultBackground } = useWindowStyling();
                                             <div class="flex flex-col min-w-0 min-h-0 max-w-full grow">
                                                 <AppSplitter.Root class="h-full mr-2" orientation="horizontal">
                                                     <AppSplitter.Panel :default-size="30" :min-size="20">
-                                                        <div class="flex flex-row min-w-0 max-h-full">
-                                                            <div class="flex grow overflow-x-hidden overflow-y-auto overscroll-contain min-w-0 min-h-0">
+                                                        <div class="flex flex-row min-w-0 max-h-full h-full">
+                                                            <div class="flex grow overflow-x-hidden overflow-y-auto overscroll-contain min-w-0 min-h-0 h-full">
                                                                 <ContainerDebug />
                                                             </div>
                                                         </div>
                                                     </AppSplitter.Panel>
                                                     <AppSplitter.Handle />
                                                     <AppSplitter.Panel :default-size="30" :min-size="20">
-                                                        <div class="flex flex-row min-w-0 max-h-full">
-                                                            <div class="flex grow overflow-x-hidden overflow-y-auto overscroll-contain min-w-0 min-h-0">
+                                                        <div class="flex flex-row min-w-0 max-h-full h-full">
+                                                            <div class="flex grow overflow-x-hidden overflow-y-auto overscroll-contain min-w-0 min-h-0 h-full">
                                                                 <ContainerDebug />
                                                             </div>
                                                         </div>

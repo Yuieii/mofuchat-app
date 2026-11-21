@@ -2,7 +2,6 @@ use std::fmt::Display;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use cached::cached;
 use chrono::{DateTime, Local, TimeDelta};
 use futures_util::{SinkExt, TryStreamExt};
 use keyring::Entry;
@@ -92,10 +91,16 @@ pub struct TwitchServiceAdapter {
     global_badges: Mutex<Option<(Vec<BadgeSet>, DateTime<Local>)>>,
     pending_auth: Mutex<Option<DeviceCodeResponse>>,
     loop_handle: Mutex<Option<JoinHandle<()>>>,
+    
+    /// Broadcaster User ID -> Service ID lookup
+    id_service_lookup: Arc<RwLock<HashMap<String, String>>>,
+
+    /// Service ID -> Broadcaster User ID lookup
+    service_id_lookup: Arc<RwLock<HashMap<String, String>>>,
 }
 
 impl TwitchServiceAdapter {
-    pub fn new() -> Arc<Self> {
+    pub fn new_shared() -> Arc<Self> {
         Arc::new(Self {
             client: HelixClient::default(),
             authenticate_lock: Mutex::new(None),
@@ -104,6 +109,9 @@ impl TwitchServiceAdapter {
             global_badges: Mutex::new(None),
             pending_auth: Mutex::new(None),
             loop_handle: Mutex::new(None),
+
+            id_service_lookup: Arc::new(RwLock::new(HashMap::new())),
+            service_id_lookup: Arc::new(RwLock::new(HashMap::new())),
         })
     }
 
@@ -139,10 +147,14 @@ impl TwitchServiceAdapter {
 
     async fn process_comment(
         &self,
-        id: &str,
         payload: ChannelChatMessageV1Payload,
         app: &AppHandle,
     ) -> Result<()> {
+        let service_lookup = self.id_service_lookup.read().await;
+        let id = service_lookup.get(payload.broadcaster_user_id.as_str())
+            .expect("Service lookup failed").clone();
+        drop(service_lookup);
+
         log::trace!("--- Start processing comment");
         let token = self.authenticate(app).await?;
 
@@ -157,7 +169,7 @@ impl TwitchServiceAdapter {
         let service = app
             .lock_prefs()
             .await
-            .get_service_by_id(id)
+            .get_service_by_id(&id)
             .unwrap()
             .clone();
 
@@ -250,11 +262,11 @@ impl TwitchServiceAdapter {
         Ok(())
     }
 
-    async fn process_payload(&self, id: &str, event: Event, app: &AppHandle) -> Result<()> {
+    async fn process_payload(&self, event: Event, app: &AppHandle) -> Result<()> {
         match event {
             Event::ChannelChatMessageV1(Payload { message, .. }) => match message {
                 Message::Notification(payload) => {
-                    self.process_comment(id, payload, app).await?;
+                    self.process_comment(payload, app).await?;
                 }
                 _ => {}
             },
@@ -263,14 +275,12 @@ impl TwitchServiceAdapter {
         Ok(())
     }
 
-    async fn process_ws_event(&self, id: &str, frame: &str, app: &AppHandle) -> Result<()> {
+    async fn process_ws_event(&self, frame: &str, app: &AppHandle) -> Result<()> {
         match Event::parse_websocket(frame)? {
             EventsubWebsocketData::Welcome { payload, .. } => {
                 let mut session_id = self.websocket_session.write().await;
                 session_id.replace(payload.session.id.into_owned());
                 drop(session_id);
-
-                self.subscribe_eventsub(id.into(), app).await?;
             }
             EventsubWebsocketData::Reconnect { .. } => {
                 let mut session_id = self.websocket_session.write().await;
@@ -279,7 +289,7 @@ impl TwitchServiceAdapter {
                 drop(session_id);
             }
             EventsubWebsocketData::Notification { payload, .. } => {
-                self.process_payload(id, payload, app).await?;
+                self.process_payload(payload, app).await?;
             }
             _ => {}
         }
@@ -303,8 +313,10 @@ impl TwitchServiceAdapter {
         let sid = service.id.clone();
         drop(prefs);
 
-        let tx = app.event_tx().clone();
+        let tx = app.service_tx().clone();
 
+        let id_clone = id.clone();
+        let app_clone = app.clone();
         let app = app.clone();
         let mut loop_handle = self.loop_handle.lock().await;
         let handle = tauri::async_runtime::spawn(async move {
@@ -360,7 +372,7 @@ impl TwitchServiceAdapter {
                 while let Ok(Some(message)) = ws.try_next().await {
                     match message {
                         reqwest_websocket::Message::Text(text) => {
-                            if let Err(err) = shared.process_ws_event(&id.clone(), &text, &app).await {
+                            if let Err(err) = shared.process_ws_event(&text, &app).await {
                                 log::error!("Error while processing WebSocket message: {err:?}");
                             }
                         }
@@ -384,16 +396,12 @@ impl TwitchServiceAdapter {
         });
         *loop_handle = Some(handle);
 
+        self.subscribe_eventsub(id_clone, &app_clone).await?;
         Ok(())
     }
 
     async fn unsubscribe_eventsub(&self, id: String, app: &AppHandle) -> Result<()> {
         let token = self.authenticate(app).await?;
-
-        let prefs = app.lock_prefs().await;
-        let service = prefs.get_service_by_id(&id).unwrap();
-        let id = service.id.clone();
-        drop(prefs);
 
         let mut subs = self.subscriptions.write().await;
         if let Some(subs) = subs.get(&id) {
@@ -402,12 +410,26 @@ impl TwitchServiceAdapter {
                     .delete_eventsub_subscription(sub_id, &token)
                     .await?;
             }
+            
+            app.service_tx().send(ServiceEvent::ServiceDeactivated {
+                id: id.clone(),
+            })?;
+
+            let mut id_lookup = self.service_id_lookup.write().await;
+            let mut service_lookup = self.id_service_lookup.write().await;
+            let user_id = id_lookup.get(&id).expect(&format!("Failed to lookup user ID by service ID: {id:?}")).clone();
+            id_lookup.remove(&id);
+            service_lookup.remove(&user_id);
         }
+
         subs.remove(&id);
 
         Ok(())
     }
 
+    /// Creates a subscription to EventSub.
+    /// 
+    /// Called when a service is enabled.
     async fn subscribe_eventsub(&self, id: String, app: &AppHandle) -> Result<()> {
         let token = match self.authenticate(app).await {
             Ok(token) => token,
@@ -426,6 +448,7 @@ impl TwitchServiceAdapter {
             .get_user_from_login(&Nickname::new(login), &token)
             .await?
             .unwrap();
+
         log::trace!("User ID: {:?}", user.id.clone());
 
         while let None = &*self.websocket_session.read().await {
@@ -443,7 +466,7 @@ impl TwitchServiceAdapter {
             )
             .await?;
 
-        app.event_tx()
+        app.service_tx()
             .send(ServiceEvent::ServiceConnected {
                 id: service.id.clone(),
             })?;
@@ -452,6 +475,11 @@ impl TwitchServiceAdapter {
         subs.entry(service.id.clone())
             .and_modify(|e| e.push(sub_id.clone()))
             .or_insert_with(|| vec![sub_id.clone()]);
+
+        let mut service_lookup = self.id_service_lookup.write().await;
+        let mut id_lookup = self.service_id_lookup.write().await;
+        service_lookup.insert(user.id.as_str().into(), service.id.clone());
+        id_lookup.insert(service.id.clone(), user.id.as_str().into());
 
         Ok(())
     }
@@ -469,7 +497,7 @@ impl TwitchServiceAdapter {
     async fn authenticate(&self, app: &AppHandle) -> Result<UserToken> {
         let pending = self.pending_auth.lock().await;
         if let Some(info) = &*pending {
-            app.event_tx()
+            app.service_tx()
                 .send(ServiceEvent::RequiresSignIn {
                     platform: CommentPlatform::Twitch,
                     code: Some(info.user_code.clone()),
@@ -482,7 +510,15 @@ impl TwitchServiceAdapter {
 
         let mut lock = self.authenticate_lock.lock().await;
 
-        if let Some(token) = &*lock {
+        if let Some(token) = &mut *lock {
+            if token.is_elapsed() {
+                token.refresh_token(&self.client).await?;
+                
+                let token = token.clone();
+                let save = UserTokenModel::new(&token);
+                let entry = Entry::new("com.yuieii.mofuchat", "token")?;
+                entry.set_password(&serde_json::to_string(&save)?)?;
+            }
             return Ok(token.clone());
         }
 
@@ -536,7 +572,7 @@ impl TwitchServiceAdapter {
         *pending = Some(info.clone());
         drop(pending);
 
-        app.event_tx()
+        app.service_tx()
             .send(ServiceEvent::RequiresSignIn {
                 platform: CommentPlatform::Twitch,
                 code: Some(info.user_code.clone()),

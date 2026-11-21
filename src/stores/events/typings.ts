@@ -1,6 +1,11 @@
 import { Prettify } from "../../types";
 import { RGBColor, Service } from "../config";
 
+export interface MofuAppEventTypeLookup {
+    commentCleared: null,
+    commentDeleted: { id: string },
+}
+
 export interface MofuEventTypeLookup {
     serviceConnected: { id: string };
     serviceDisconnected: { id: string };
@@ -72,4 +77,14 @@ type MofuEventData<K> = K extends infer A
 
 export type MofuEvent<K extends string = string> = Prettify<K extends any
     ? { event: K, data: MofuEventData<K> }
+    : { event: string, data: unknown }>;
+
+type MofuAppEventData<K> = K extends infer A
+    ? A extends keyof MofuAppEventTypeLookup
+        ? MofuAppEventTypeLookup[A]
+        : unknown
+    : never;
+
+export type MofuAppEvent<K extends string = string> = Prettify<K extends any
+    ? { event: K, data: MofuAppEventData<K> }
     : { event: string, data: unknown }>;

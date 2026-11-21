@@ -9,11 +9,17 @@ pub mod commands;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "event", content = "data", rename_all = "camelCase")]
-pub enum ServiceEvent {
+pub enum AppEvent {
     CommentCleared,
     CommentDeleted {
         id: String,
     },
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "event", content = "data", rename_all = "camelCase")]
+pub enum ServiceEvent {
+    CommentCleared,
     CommentCreated(Comment),
     ServiceConnected {
         id: String,

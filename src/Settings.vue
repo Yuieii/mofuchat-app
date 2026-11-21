@@ -150,7 +150,7 @@ onMounted(async () => {
         </div>
 
         <main class="@container-[inline-size] w-full flex flex-row grow items-stretch basis-full min-h-0 min-w-0 mx-auto" :class="maxWSize">
-            <div class="flex flex-col h-full max-h-full overflow-x-hidden overflow-y-auto w-[33cqi] border-r-1 border-gray-300">
+            <div class="flex flex-col h-full max-h-full overflow-x-hidden overflow-y-auto w-[33cqi] border-r-1 border-[#0002]">
                 <div class="flex flex-col gap-1 p-3">
                     <template v-for="(tab, index) in tabs" :key="index">
                         <div :class="index == tabIndex ? activeTabClasses : inactiveTabClasses" @click="tabIndex = index">
@@ -159,6 +159,7 @@ onMounted(async () => {
                     </template>
                 </div>
             </div>
+
             <div class="grow relative flex flex-col h-full items-stretch max-h-full overflow-x-hidden overflow-y-auto scrollbar-gutter-stable">
                 <TransitionGroup name="tab-content">
                     <SettingsPage v-if="tabIndex == 0" :key="0">

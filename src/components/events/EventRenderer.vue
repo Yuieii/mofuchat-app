@@ -52,7 +52,7 @@ function renderEvent<K extends string>(ev: MofuEvent<K>): VNode | null {
         default:
             return h(EventConnection, {
                 class: "bg-gray-200! text-gray-700! fill-gray-700! items-center gap-2"
-            }, [
+            }, () => [
                 h("span", "未知事件。"),
                 h("code", { class: "opacity-50 text-xs font-monospace bg-[#0002] px-1 mt-0.5 pt-0.5 rounded-sm border border-[#0003]" }, `event: "${ev.event}"`)
             ]);

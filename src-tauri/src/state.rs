@@ -9,13 +9,14 @@ use tokio::{
 };
 
 use crate::{
-    comments::Comment, prefs::Prefs, services::{ServiceEvent, adapter::AdapterRegistry},
+    comments::Comment, prefs::Prefs, services::{AppEvent, ServiceEvent, adapter::AdapterRegistry},
 };
 
 const COMMENT_LIMIT: usize = 1000;
 
 pub struct AppState {
-    pub event_tx: broadcast::Sender<ServiceEvent>,
+    pub event_tx: broadcast::Sender<AppEvent>,
+    pub service_tx: broadcast::Sender<ServiceEvent>,
     pub active_tasks: Mutex<HashMap<String, JoinHandle<()>>>,
     pub comments: Mutex<VecDeque<Comment>>,
     pub prefs: Mutex<Prefs>,
@@ -24,6 +25,7 @@ pub struct AppState {
 
 pub fn setup(app: &mut App) -> Result<()> {
     let (event_tx, _) = broadcast::channel(512);
+    let (service_tx, _) = broadcast::channel(512);
 
     let handle = app.handle();
     let prefs = Prefs::try_from_local(handle)
@@ -34,6 +36,7 @@ pub fn setup(app: &mut App) -> Result<()> {
         });
 
     let state = AppState {
+        service_tx,
         event_tx,
         prefs: Mutex::new(prefs),
         active_tasks: Mutex::new(HashMap::new()),
@@ -55,12 +58,25 @@ impl AppState {
         self.active_tasks.lock().await
     }
 
-    pub fn event_tx(&self) -> &broadcast::Sender<ServiceEvent> {
+    pub fn event_tx(&self) -> &broadcast::Sender<AppEvent> {
         &self.event_tx
+    }
+
+    pub fn service_tx(&self) -> &broadcast::Sender<ServiceEvent> {
+        &self.service_tx
     }
     
     pub async fn lock_comments(&self) -> MutexGuard<'_, VecDeque<Comment>> {
         self.comments.lock().await
+    }
+
+    pub async fn clear_comments(&self) -> Result<()> {
+        let mut comments = self.lock_comments().await;
+        comments.clear();
+
+        self.event_tx().send(AppEvent::CommentCleared)?;
+        self.service_tx().send(ServiceEvent::CommentCleared)?;
+        Ok(())
     }
 
     pub async fn push_comment(&self, comment: Comment) -> Result<()> {
@@ -70,8 +86,7 @@ impl AppState {
         }
         comments.push_back(comment.clone());
 
-        self.event_tx().send(ServiceEvent::CommentCreated(comment))?;
-
+        self.service_tx().send(ServiceEvent::CommentCreated(comment))?;
         Ok(())
     }
 }
@@ -88,12 +103,20 @@ pub trait ManagerExt<R> {
         self.app_state().lock_prefs().await
     }
 
-    fn event_tx(&self) -> &broadcast::Sender<ServiceEvent> {
+    fn event_tx(&self) -> &broadcast::Sender<AppEvent> {
         self.app_state().event_tx()
+    }
+
+    fn service_tx(&self) -> &broadcast::Sender<ServiceEvent> {
+        self.app_state().service_tx()
     }
 
     async fn lock_comments(&self) -> MutexGuard<'_, VecDeque<Comment>> {
         self.app_state().lock_comments().await
+    }
+
+    async fn clear_comments(&self) -> Result<()> {
+        self.app_state().clear_comments().await
     }
 
     async fn push_comment(&self, comment: Comment) -> Result<()> {

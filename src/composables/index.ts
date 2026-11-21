@@ -23,17 +23,26 @@ export function useTheme() {
 }
 
 export function useDebouncedComputed<T>(value: { get(): T, set(value: T): void }, delay: number = 1000) {
-    let timeout: number = -1;
+    let timeout: number | undefined;
+    let temp: T | null = null;
     
     return customRef((track, trigger) => ({
         get() {
             track();
+            if (typeof timeout !== "undefined") {
+                return temp!;
+            }
+
             return value.get();
         },
         set(newValue: T) {
+            temp = newValue;
+            trigger();
+
             clearTimeout(timeout);
             timeout = setTimeout(() => {
                 value.set(newValue);
+                timeout = undefined;
                 trigger();
             }, delay);
         }

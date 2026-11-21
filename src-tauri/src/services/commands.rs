@@ -1,34 +1,49 @@
-use std::fmt::Display;
+use std::{collections::VecDeque, fmt::Display};
 
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
-use super::ServiceEvent;
-use crate::state::ManagerExt;
+use thiserror::Error;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+use super::ServiceEvent;
+use crate::{comments::Comment, error::{FutureExt, TauriResult}, state::ManagerExt};
+
+#[derive(Error, Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Error {
+    #[error("Invalid service ID")]
     InvalidServiceId,
+    #[error("Unsupported URL")]
     UnsupportedURL,
+    #[error("Unknown error")]
     Unknown,
 }
 
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::InvalidServiceId => f.write_str("Invalid service ID"),
-            Error::UnsupportedURL => f.write_str("Unsupported URL"),
-            Error::Unknown => f.write_str("Unknown"),
-        }
-    }
+#[tauri::command]
+pub async fn fetch_comments_from_memory(app: AppHandle) -> VecDeque<Comment> {
+    let comments = app.lock_comments().await;
+    log::trace!("Returning {} comments", comments.len());
+    comments.clone()
 }
 
-impl std::error::Error for Error {}
+#[tauri::command]
+pub async fn clear_comments(app: AppHandle) -> TauriResult<()> {
+    app.clear_comments().tauri().await?;
+    Ok(())
+}
 
 #[tauri::command]
-pub async fn toggle_channel(app: AppHandle, service_id: String) -> Result<(), Error> {
+pub fn check_supports_url(app: AppHandle, url: String) -> bool {
+    app.app_state()
+        .registry
+        .resolve(&url)
+        .map(|_| true)
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+pub async fn toggle_channel(app: AppHandle, service_id: String) -> TauriResult<()> {
     let mut tasks = app.lock_active_tasks().await;
     if let Some(old_handle) = tasks.remove(&service_id) {
         old_handle.abort();
@@ -53,10 +68,6 @@ pub async fn toggle_channel(app: AppHandle, service_id: String) -> Result<(), Er
         .ok_or_else(|| Error::UnsupportedURL)?;
 
     if !service.enabled {
-        let _ = app.event_tx().send(ServiceEvent::ServiceDeactivated {
-            id: service_id.clone(),
-        });
-
         adapter
             .dispose(service_id.clone(), app.clone())
             .await
@@ -66,7 +77,7 @@ pub async fn toggle_channel(app: AppHandle, service_id: String) -> Result<(), Er
     }
 
     let cloned = app.clone();
-    let tx = app.event_tx().clone();
+    let tx = app.service_tx().clone();
     let cid = service_id.clone();
 
     let handle = tokio::spawn(async move {
